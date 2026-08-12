@@ -659,8 +659,8 @@ export default function DiscogsTradeList() {
     const f = format.toLowerCase();
     const hasVinyl = /vinyl/.test(f);
     const hasCD = /\bcds?\b/.test(f);
-    if (hasVinyl && hasCD) return "#5B9BD5";
-    if (hasVinyl) return "#4CAF50";
+    if (hasVinyl && hasCD) return "#BA86B6";
+    if (hasVinyl) return "#5B9BD5";
     if (hasCD) return "#e04730";
     return "#9A9A9A";
   };
@@ -2431,8 +2431,8 @@ export default function DiscogsTradeList() {
                 </p>
                 <div style={{ display: "flex", gap: 6 }}>
                   {[
-                    { key: "vinyl", label: "Vinyl only", color: "#4CAF50" },
-                    { key: "cd", label: "CD only", color: "#5B9BD5" },
+                    { key: "vinyl", label: "Vinyl only", color: "#5B9BD5" },
+                    { key: "cd", label: "CD only", color: "#e04730" },
                     { key: "both", label: "Both", color: "#BA86B6" },
                   ].map((opt) => {
                     const selected = modalFormatChoice === opt.key;
