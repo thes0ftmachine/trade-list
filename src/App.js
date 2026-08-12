@@ -7,9 +7,8 @@ import { Analytics } from "@vercel/analytics/react";
 
 const FONT_LINK = "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,500;1,700&family=Barlow:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap";
 
-// TODO: swap in the new Supabase project's URL + anon key once it's created.
-const SUPABASE_URL = "REPLACE_ME_SUPABASE_URL";
-const SUPABASE_ANON_KEY = "REPLACE_ME_SUPABASE_ANON_KEY";
+const SUPABASE_URL = "https://iraobkcuoiibqqhggmtm.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlyYW9ia2N1b2lpYnFxaGdnbXRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY0MDY2NzMsImV4cCI6MjEwMTk4MjY3M30.K8-wLMZDMdSS4WnGE1hxxJKjvJ5GwoFbMbPxhY6KRYk";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const TABLE = "tradelist";
