@@ -70,7 +70,6 @@ function useFonts() {
     }
   }, []);
 }
-
 function usePageChrome() {
   useEffect(() => {
     const prevHtmlBg = document.documentElement.style.background;
@@ -2405,83 +2404,167 @@ export default function DiscogsTradeList() {
                           <X size={14} strokeWidth={2.5} />
                         </button>
                       )}
-                              {item.condition && (
-                                <span className="mono" style={{ fontSize: 10.5, color: "#C99A3A", marginTop: 2 }}>
-                                  Condition: {item.condition}
-                                </span>
-                              )}
-                              {item.notes && (
-                                <span style={{ fontSize: 11, color: "#6B6B6B", fontStyle: "italic", marginTop: 2 }}>
-                                  {item.notes}
-                                </span>
-                              )}
-                            </div>
-                            <button
-                              disabled={!profile?.is_admin && item.author_id !== session?.user?.id}
-                              onClick={() =>
-                                setNoteEditModal({ id: item.id, title: item.title, value: item.notes || "" })
-                              }
-                              title={profile?.is_admin || item.author_id === session?.user?.id ? "Edit note" : "Only the owner can edit this note"}
+                    </div>
+                  ))}
+                  {["claimed", "pending", "traded"].map((statusKey) => {
+                    const bucket = statusBuckets[statusKey];
+                    if (bucket.length === 0) return null;
+                    const { label, icon: StatusIcon, color } = STATUS_CONFIG[statusKey];
+                    const bucketKey = `${p.name}:${statusKey}`;
+                    const collapsed = collapsedStatusBuckets[bucketKey];
+                    return (
+                      <div key={statusKey} style={{ marginTop: 4, paddingLeft: 22 }}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCollapsedStatusBuckets((s) => ({ ...s, [bucketKey]: !s[bucketKey] }))
+                          }
+                          className="mono"
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            letterSpacing: 0.5,
+                            cursor: "pointer",
+                            padding: "4px 0",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 5,
+                          }}
+                        >
+                          {collapsed ? "▸" : "▾"}
+                          <StatusIcon size={11} />
+                          {label} ({bucket.length})
+                        </button>
+                        {!collapsed &&
+                          bucket.map((item) => (
+                            <div
+                              key={item.id}
+                              className="entry-row"
                               style={{
-                                background: "none",
-                                border: "none",
-                                color: "#6B6B6B",
-                                cursor: "pointer",
-                                padding: 4,
-                                flexShrink: 0,
+                                display: "flex",
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                                gap: 8,
+                                padding: "6px 4px 6px 22px",
                               }}
                             >
-                              <Pencil size={13} />
-                            </button>
-                            {!isOwnSection && (
+                              <RecordThumb
+                                src={item.thumb}
+                                alt={item.title}
+                                size={30}
+                                onClick={() => setImagePreview({ src: item.image_full || item.thumb, alt: item.title })}
+                              />
+                              <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column" }}>
+                                {item.url ? (
+                                  <a
+                                    href={item.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      fontSize: 13,
+                                      color: "#D8D3CC",
+                                      textDecoration: "none",
+                                      borderBottom: `1px solid ${color}`,
+                                      width: "fit-content",
+                                    }}
+                                  >
+                                    {item.title}
+                                  </a>
+                                ) : (
+                                  <span style={{ fontSize: 13, color: "#D8D3CC" }}>{item.title}</span>
+                                )}
+                                {item.condition && (
+                                  <span className="mono" style={{ fontSize: 10.5, color: "#C99A3A", marginTop: 2 }}>
+                                    Condition: {item.condition}
+                                  </span>
+                                )}
+                                {item.notes && (
+                                  <span style={{ fontSize: 11, color: "#6B6B6B", fontStyle: "italic", marginTop: 2 }}>
+                                    {item.notes}
+                                  </span>
+                                )}
+                              </div>
                               <button
-                                onClick={() => openListModal(item, "other")}
-                                title={`Add this to your own ${listType === "trade" ? "trade" : "want"} list`}
+                                disabled={!profile?.is_admin && item.author_id !== session?.user?.id}
+                                onClick={() =>
+                                  setNoteEditModal({ id: item.id, title: item.title, value: item.notes || "" })
+                                }
+                                title={profile?.is_admin || item.author_id === session?.user?.id ? "Edit note" : "Only the owner can edit this note"}
                                 style={{
                                   background: "none",
-                                  border: "1px solid #9D7047",
-                                  color: "#F5F0EC",
+                                  border: "none",
+                                  color: "#6B6B6B",
+                                  cursor: "pointer",
+                                  padding: 4,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              {!isOwnSection && (
+                                <button
+                                  onClick={() => openListModal(item, "other")}
+                                  title={`Add this to your own ${listType === "trade" ? "trade" : "want"} list`}
+                                  style={{
+                                    background: "none",
+                                    border: "1px solid #9D7047",
+                                    color: "#F5F0EC",
+                                    cursor: "pointer",
+                                    padding: "4px 8px",
+                                    borderRadius: 6,
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <Plus size={12} />
+                                  {activeType.addLabel}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  if (!profile?.is_admin && item.author_id !== session?.user?.id) {
+                                    showToast("You can only change your own items");
+                                    return;
+                                  }
+                                  setStatusModal({ id: item.id, title: item.title, current: item.status || null });
+                                }}
+                                title="Change status"
+                                style={{
+                                  background: "none",
+                                  border: `1px solid ${color}55`,
+                                  color,
                                   cursor: "pointer",
                                   padding: "4px 8px",
                                   borderRadius: 6,
                                   fontSize: 11,
-                                  fontWeight: 600,
                                   display: "flex",
                                   alignItems: "center",
                                   gap: 4,
                                   flexShrink: 0,
                                 }}
                               >
-                                <Plus size={12} />
-                                {activeType.addLabel}
+                                Change
                               </button>
-                            )}
-                            <button
-                              onClick={() => setStatusModal({ id: item.id, title: item.title, current: item.status })}
-                              title="Change status"
-                              style={{
-                                background: "none",
-                                border: `1px solid ${color}55`,
-                                color,
-                                cursor: "pointer",
-                                padding: "4px 8px",
-                                borderRadius: 6,
-                                fontSize: 11,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                                flexShrink: 0,
-                              }}
-                            >
-                              Change
-                            </button>
-                            {(profile?.is_admin || item.author_id === session?.user?.id) && (
-                              <button type="button" onClick={() => deleteEntry(item.id)} title="Delete item" aria-label="Delete item" style={{ border: "none", background: "transparent", color: "#9D7047", padding: 4, cursor: "pointer", flexShrink: 0 }}>
-                                <X size={14} strokeWidth={2.5} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                              {(profile?.is_admin || item.author_id === session?.user?.id) && (
+                                <button
+                                  type="button"
+                                  onClick={() => deleteEntry(item.id)}
+                                  title="Delete item"
+                                  aria-label="Delete item"
+                                  style={{ border: "none", background: "transparent", color: "#9D7047", padding: 4, cursor: "pointer", flexShrink: 0 }}
+                                >
+                                  <X size={14} strokeWidth={2.5} />
+                                </button>
+                              )}
+                            </div>
+                          ))}
                       </div>
                     );
                   })}
