@@ -146,7 +146,10 @@ function RecordThumb({ src, alt, size = 56, onClick }) {
 }
 
 
-function TradeComments({ itemId, session, profile }) {
+// popover: render the expanded thread as an absolutely-positioned panel hanging
+// off the button instead of inline. Needed where the button sits in a narrow
+// right-hand column that would otherwise squash the thread to its own width.
+function TradeComments({ itemId, session, profile, popover = false }) {
   const [expanded, setExpanded] = useState(false);
   const [comments, setComments] = useState([]);
   const [body, setBody] = useState("");
@@ -206,7 +209,7 @@ function TradeComments({ itemId, session, profile }) {
   };
 
   return (
-    <div style={{ marginTop: 8, paddingLeft: 0 }}>
+    <div style={{ marginTop: popover ? 0 : 8, paddingLeft: 0, position: popover ? "relative" : undefined }}>
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -229,7 +232,26 @@ function TradeComments({ itemId, session, profile }) {
       </button>
 
       {expanded && (
-        <div style={{ marginTop: 8, border: "1px solid #2A2A2A", borderRadius: 9, background: "#0A0A0A", padding: 10 }}>
+        <div
+          style={
+            popover
+              ? {
+                  position: "absolute",
+                  top: "100%",
+                  right: 0,
+                  marginTop: 8,
+                  width: "min(360px, 78vw)",
+                  border: "1px solid #2A2A2A",
+                  borderRadius: 9,
+                  background: "#0A0A0A",
+                  padding: 10,
+                  textAlign: "left",
+                  boxShadow: "0 10px 28px rgba(0,0,0,0.65)",
+                  zIndex: 20,
+                }
+              : { marginTop: 8, border: "1px solid #2A2A2A", borderRadius: 9, background: "#0A0A0A", padding: 10 }
+          }
+        >
           {loading ? (
             <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>Loading comments…</div>
           ) : comments.length === 0 ? (
@@ -2107,6 +2129,36 @@ export default function DiscogsTradeList() {
                         {g.format && <span style={{ color: formatColor(g.format) }}>{g.format}</span>}
                       </div>
                     )}
+                    {g.people.some((p) => p.notes) && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 5 }}>
+                        {g.people
+                          .filter((p) => p.notes)
+                          .map((p) => (
+                            <div
+                              key={p.id}
+                              style={{
+                                fontSize: 11.5,
+                                color: "#9A9A9A",
+                                fontStyle: "italic",
+                                lineHeight: 1.4,
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 5,
+                              }}
+                            >
+                              <StickyNote size={11} color="#6B6B6B" style={{ flexShrink: 0, marginTop: 3 }} />
+                              <span>
+                                {g.people.length > 1 && (
+                                  <span className="mono" style={{ fontStyle: "normal", color: "#6B6B6B" }}>
+                                    {p.name}:{" "}
+                                  </span>
+                                )}
+                                {p.notes}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    )}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
                       {g.people.map((p) => {
                         const statusInfo = listType === "trade" && p.status ? STATUS_CONFIG[p.status] : null;
@@ -2121,8 +2173,8 @@ export default function DiscogsTradeList() {
                               style={{ fontSize: 11, background: "#121212", color: "#F5F0EC", padding: "3px 8px", borderRadius: 20, border: "1px solid #2A2A2A", display: "inline-flex", alignItems: "center", gap: 4 }}
                             >
                               {p.name}
-                              {(p.notes || p.condition) && (
-                                <StickyNote size={11} color="#9A9A9A" title={[p.condition, p.notes].filter(Boolean).join(" — ")} />
+                              {p.condition && (
+                                <StickyNote size={11} color="#9A9A9A" title={`Condition: ${p.condition}`} />
                               )}
                             </span>
                             {listType === "trade" && (
@@ -2159,38 +2211,57 @@ export default function DiscogsTradeList() {
                                 <X size={14} strokeWidth={2.5} />
                               </button>
                             )}
-                            <TradeComments itemId={p.id} session={session} profile={profile} />
+                            {listType !== "trade" && (
+                              <TradeComments itemId={p.id} session={session} profile={profile} />
+                            )}
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                  <button
-                    onClick={() =>
-                      openListModal(
-                        { title: g.title, thumb: g.thumb, image_full: g.image_full || null, url: g.url, genre: g.genre || null, format: g.format || null },
-                        "other"
-                      )
-                    }
-                    title={`Add this to your own ${listType === "trade" ? "trade" : "want"} list`}
-                    style={{
-                      background: "none",
-                      border: "1px solid #9D7047",
-                      color: "#F5F0EC",
-                      cursor: "pointer",
-                      padding: "6px 10px",
-                      borderRadius: 7,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Plus size={13} />
-                    {activeType.addLabel}
-                  </button>
+                  {/* For Trade puts comments in the right-hand slot; In Search Of keeps
+                      the add-to-my-list button there and comments down in the chip row. */}
+                  {listType === "trade" ? (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+                      {g.people.map((p) => (
+                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          {g.people.length > 1 && (
+                            <span className="mono" style={{ fontSize: 9.5, color: "#6B6B6B" }}>
+                              {p.name}
+                            </span>
+                          )}
+                          <TradeComments itemId={p.id} session={session} profile={profile} popover />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        openListModal(
+                          { title: g.title, thumb: g.thumb, image_full: g.image_full || null, url: g.url, genre: g.genre || null, format: g.format || null },
+                          "other"
+                        )
+                      }
+                      title="Add this to your own want list"
+                      style={{
+                        background: "none",
+                        border: "1px solid #9D7047",
+                        color: "#F5F0EC",
+                        cursor: "pointer",
+                        padding: "6px 10px",
+                        borderRadius: 7,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Plus size={13} />
+                      {activeType.addLabel}
+                    </button>
+                  )}
                 </div>
               ))
             )}
