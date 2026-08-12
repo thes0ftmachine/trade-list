@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, Disc3, User, Plus, X, RefreshCw, ListMusic, Users, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil } from "lucide-react";
+import { Search, Disc3, User, Plus, X, RefreshCw, ListMusic, Users, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, Trash2, ShieldCheck } from "lucide-react";
 import * as XLSX from "xlsx";
 import { createClient } from "@supabase/supabase-js";
 import { Analytics } from "@vercel/analytics/react";
@@ -139,6 +139,179 @@ function RecordThumb({ src, alt, size = 56, onClick }) {
   );
 }
 
+
+function TradeComments({ itemId, session, profile }) {
+  const [expanded, setExpanded] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [body, setBody] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadComments = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("trade_comments")
+        .select("*")
+        .eq("item_id", itemId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      setComments(data || []);
+    } catch (e) {
+      setComments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [itemId]);
+
+  useEffect(() => {
+    loadComments();
+  }, [loadComments]);
+
+  const submitComment = async () => {
+    const trimmed = body.trim();
+    if (!session?.user?.id || !profile?.display_name || !trimmed) return;
+    setSubmitting(true);
+    try {
+      const comment = {
+        id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        item_id: itemId,
+        author_id: session.user.id,
+        author_name: profile.display_name,
+        body: trimmed,
+      };
+      const { error } = await supabase.from("trade_comments").insert([comment]);
+      if (error) throw error;
+      setBody("");
+      await loadComments();
+    } catch (e) {
+      // Keep comment errors local; the main app remains usable.
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const deleteComment = async (id) => {
+    if (!profile?.is_admin) return;
+    const previous = comments;
+    setComments((current) => current.filter((c) => c.id !== id));
+    const { error } = await supabase.from("trade_comments").delete().eq("id", id);
+    if (error) setComments(previous);
+  };
+
+  return (
+    <div style={{ marginTop: 8, paddingLeft: 0 }}>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="mono"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          border: "1px solid #2A2A2A",
+          background: "#121212",
+          color: expanded ? "#F5F0EC" : "#9A9A9A",
+          borderRadius: 20,
+          padding: "4px 9px",
+          fontSize: 10.5,
+          cursor: "pointer",
+        }}
+      >
+        <MessageCircle size={12} />
+        {comments.length} comment{comments.length !== 1 ? "s" : ""}
+      </button>
+
+      {expanded && (
+        <div style={{ marginTop: 8, border: "1px solid #2A2A2A", borderRadius: 9, background: "#0A0A0A", padding: 10 }}>
+          {loading ? (
+            <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>Loading comments…</div>
+          ) : comments.length === 0 ? (
+            <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B", marginBottom: session ? 9 : 0 }}>
+              No comments yet.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: session ? 10 : 0 }}>
+              {comments.map((comment) => (
+                <div key={comment.id} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 7, flexWrap: "wrap" }}>
+                      <strong style={{ fontSize: 11.5, color: "#D8D3CC" }}>{comment.author_name}</strong>
+                      <span className="mono" style={{ fontSize: 9.5, color: "#5F5F5F" }}>
+                        {comment.created_at ? new Date(comment.created_at).toLocaleString() : ""}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: "#BDB8B2", lineHeight: 1.45, marginTop: 2, whiteSpace: "pre-wrap" }}>
+                      {comment.body}
+                    </div>
+                  </div>
+                  {profile?.is_admin && (
+                    <button
+                      type="button"
+                      onClick={() => deleteComment(comment.id)}
+                      title="Delete comment"
+                      aria-label="Delete comment"
+                      style={{ border: "none", background: "transparent", color: "#6B6B6B", padding: 2, cursor: "pointer" }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {session && profile ? (
+            <div style={{ display: "flex", gap: 7, alignItems: "flex-end" }}>
+              <textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Add a comment…"
+                rows={2}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  resize: "vertical",
+                  padding: "8px 10px",
+                  borderRadius: 7,
+                  border: "1px solid #2A2A2A",
+                  background: "#000000",
+                  color: "#F5F0EC",
+                  fontSize: 12.5,
+                  outline: "none",
+                  fontFamily: "'Barlow', sans-serif",
+                }}
+              />
+              <button
+                type="button"
+                onClick={submitComment}
+                disabled={!body.trim() || submitting}
+                style={{
+                  border: "none",
+                  borderRadius: 7,
+                  padding: "8px 11px",
+                  background: body.trim() && !submitting ? "#E11B23" : "#3A3A3A",
+                  color: body.trim() && !submitting ? "#F5F0EC" : "#6B6B6B",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: body.trim() && !submitting ? "pointer" : "not-allowed",
+                  flexShrink: 0,
+                }}
+              >
+                {submitting ? <RefreshCw size={13} className="spin" /> : "Post"}
+              </button>
+            </div>
+          ) : (
+            <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>
+              Sign in above to comment.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DiscogsTradeList() {
   useFonts();
   usePageChrome();
@@ -146,7 +319,16 @@ export default function DiscogsTradeList() {
   // which half of the site: 'trade' (For Trade, default) or 'seeking' (In Search Of)
   const [listType, setListType] = useState("trade");
 
-  const [name, setName] = useState("");
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authSent, setAuthSent] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState(null);
+  const [profileName, setProfileName] = useState("");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const name = profile?.display_name || "";
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -199,7 +381,6 @@ export default function DiscogsTradeList() {
   const fileInputRef = useRef(null);
   const [uploadRows, setUploadRows] = useState(null);
   const [uploadError, setUploadError] = useState(null);
-  const [uploadName, setUploadName] = useState("");
   const [uploading, setUploading] = useState(false);
 
   const activeType = LIST_TYPES[listType];
@@ -238,6 +419,107 @@ export default function DiscogsTradeList() {
     setTimeout(() => setToast(null), 2200);
   };
 
+  // --- Supabase Auth / profile ---
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      if (mounted) setSession(currentSession);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadProfile = async () => {
+      if (!session?.user?.id) {
+        setProfile(null);
+        setProfileName("");
+        setProfileLoading(false);
+        return;
+      }
+      setProfileLoading(true);
+      setAuthError(null);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, email, display_name, is_admin, created_at")
+        .eq("id", session.user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        setProfile(null);
+        setAuthError("Couldn't load your account profile.");
+      } else {
+        setProfile(data || null);
+        setProfileName(data?.display_name || "");
+      }
+      setProfileLoading(false);
+    };
+    loadProfile();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
+
+  const sendMagicLink = async () => {
+    const email = authEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      setAuthError("Enter a valid email address.");
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError(null);
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    if (error) {
+      setAuthError(error.message || "Couldn't send the magic link.");
+      setAuthSent(false);
+    } else {
+      setAuthSent(true);
+    }
+    setAuthLoading(false);
+  };
+
+  const saveProfile = async () => {
+    const displayName = profileName.trim();
+    if (!session?.user?.id || !displayName) {
+      setAuthError("Choose a display name.");
+      return;
+    }
+    setProfileSaving(true);
+    setAuthError(null);
+    const nextProfile = {
+      id: session.user.id,
+      email: session.user.email || null,
+      display_name: displayName,
+    };
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert(nextProfile, { onConflict: "id" })
+      .select("id, email, display_name, is_admin, created_at")
+      .single();
+    if (error) {
+      setAuthError(error.message || "Couldn't save your profile.");
+    } else {
+      setProfile(data);
+      setProfileName(data.display_name);
+    }
+    setProfileSaving(false);
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setAuthSent(false);
+    setAuthEmail("");
+    setProfile(null);
+    setProfileName("");
+  };
+
   const loadEntries = useCallback(async () => {
     setLoadingEntries(true);
     try {
@@ -258,26 +540,6 @@ export default function DiscogsTradeList() {
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
-
-  // Name autofill — remember the last name typed into the main field, on
-  // this device, so it doesn't need retyping every visit. Never overwrites
-  // what's on screen once loaded; people can still change it per visit.
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem("tradelistName");
-      if (saved && saved.trim()) setName(saved);
-    } catch (e) {
-      // localStorage can throw in some privacy modes — fine to just skip it
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      if (name.trim()) window.localStorage.setItem("tradelistName", name);
-    } catch (e) {
-      // ignore — see above
-    }
-  }, [name]);
 
   // Switching top-level tabs resets the sub-view back to Add, and clears
   // filters/search so a stale filter from one tab doesn't silently hide
@@ -399,13 +661,16 @@ export default function DiscogsTradeList() {
   // duplicate = same person, same title, same list type (trade vs seeking),
   // excluding anything already removed. Scoped by type so someone can want
   // a title on In Search Of while also having a copy up For Trade.
-  const isDuplicate = (personName, title, type) =>
+  const isDuplicate = (personName, title, type, authorId = session?.user?.id) =>
     entries.some(
       (e) =>
         !e.unwanted &&
         e.type === type &&
-        e.name.trim().toLowerCase() === personName.trim().toLowerCase() &&
-        e.title.trim().toLowerCase() === title.trim().toLowerCase()
+        e.title.trim().toLowerCase() === title.trim().toLowerCase() &&
+        (
+          (authorId && e.author_id === authorId) ||
+          (!e.author_id && e.name.trim().toLowerCase() === personName.trim().toLowerCase())
+        )
     );
 
   const confirmDuplicate = (title) =>
@@ -417,9 +682,13 @@ export default function DiscogsTradeList() {
     );
 
   const openListModal = (item, source, type = listType) => {
+    if (!session || !profile) {
+      showToast("Sign in above to add items");
+      return;
+    }
     setModalNotes("");
     setModalCondition("");
-    setModalForName(source === "other" ? "" : name);
+    setModalForName(name);
     setModalFormatChoice(null);
     setListModal({ source, item, type });
   };
@@ -436,9 +705,13 @@ export default function DiscogsTradeList() {
 
   const submitListModal = async () => {
     if (!listModal) return;
-    const finalName = (listModal.source === "other" ? modalForName : name).trim();
+    if (!session?.user?.id || !profile?.display_name) {
+      showToast("Sign in above to add items");
+      return;
+    }
+    const finalName = name.trim();
     if (!finalName) {
-      showToast("Add a name first");
+      showToast("Set up your display name first");
       return;
     }
     const item = listModal.item;
@@ -453,6 +726,7 @@ export default function DiscogsTradeList() {
       modalFormatChoice === "vinyl" ? "Vinyl" : modalFormatChoice === "cd" ? "CD" : modalFormatChoice === "both" ? "Vinyl or CD" : null;
     const entry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      author_id: session.user.id,
       type: listModal.type,
       name: finalName,
       title: item.title,
@@ -681,7 +955,6 @@ export default function DiscogsTradeList() {
         }
 
         setUploadRows(parsed);
-        if (nameCol === -1) setUploadName(name.trim());
       } catch (err) {
         setUploadError("Couldn't read that file. Make sure it's a .csv or .xlsx file.");
       }
@@ -692,10 +965,13 @@ export default function DiscogsTradeList() {
 
   const confirmUpload = async () => {
     if (!uploadRows) return;
-    const fallbackName = uploadName.trim();
-    const rowsNeedName = uploadRows.filter((r) => !r.name && !fallbackName);
-    if (rowsNeedName.length > 0) {
-      showToast("Add a name to use for rows missing one");
+    if (!session?.user?.id || !profile?.display_name) {
+      showToast("Sign in above to upload items");
+      return;
+    }
+    const fallbackName = name.trim();
+    if (!fallbackName) {
+      showToast("Set up your display name first");
       return;
     }
     setUploading(true);
@@ -703,8 +979,9 @@ export default function DiscogsTradeList() {
       const title = r.artist ? `${r.artist} – ${r.title}` : r.title;
       return {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        author_id: session.user.id,
         type: listType,
-        name: r.name || fallbackName,
+        name: fallbackName,
         title,
         thumb: r.thumb || null,
         year: r.year || "",
@@ -721,7 +998,6 @@ export default function DiscogsTradeList() {
       const now = new Date().toISOString();
       setEntries((prev) => [...newEntries.map((e) => ({ ...e, addedAt: now })), ...prev]);
       setUploadRows(null);
-      setUploadName("");
       if (fileInputRef.current) fileInputRef.current.value = "";
       showToast(`Added ${newEntries.length} item${newEntries.length !== 1 ? "s" : ""} from spreadsheet`, true);
     } catch (e) {
@@ -734,11 +1010,15 @@ export default function DiscogsTradeList() {
   const cancelUpload = () => {
     setUploadRows(null);
     setUploadError(null);
-    setUploadName("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const setUnwanted = async (id, unwanted) => {
+    const target = entries.find((x) => x.id === id);
+    if (!target || (!profile?.is_admin && target.author_id !== session?.user?.id)) {
+      showToast("You can only change your own items");
+      return;
+    }
     const prev = entries;
     setEntries((e) => e.map((x) => (x.id === id ? { ...x, unwanted } : x)));
     try {
@@ -755,6 +1035,11 @@ export default function DiscogsTradeList() {
   };
 
   const setItemStatus = async (id, status) => {
+    const target = entries.find((x) => x.id === id);
+    if (!target || (!profile?.is_admin && target.author_id !== session?.user?.id)) {
+      showToast("You can only change your own items");
+      return;
+    }
     const prev = entries;
     setEntries((e) => e.map((x) => (x.id === id ? { ...x, status, found: !!status } : x)));
     try {
@@ -767,6 +1052,11 @@ export default function DiscogsTradeList() {
   };
 
   const updateNotes = async (id, newNotes) => {
+    const target = entries.find((x) => x.id === id);
+    if (!target || (!profile?.is_admin && target.author_id !== session?.user?.id)) {
+      showToast("You can only edit your own items");
+      return;
+    }
     const trimmed = (newNotes || "").trim() || null;
     const prev = entries;
     setEntries((e) => e.map((x) => (x.id === id ? { ...x, notes: trimmed } : x)));
@@ -777,6 +1067,19 @@ export default function DiscogsTradeList() {
     } catch (e) {
       setEntries(prev);
       showToast("Couldn't update note — try again");
+    }
+  };
+
+  const deleteEntry = async (id) => {
+    if (!profile?.is_admin) return;
+    const previous = entries;
+    setEntries((current) => current.filter((e) => e.id !== id));
+    const { error } = await supabase.from(TABLE).delete().eq("id", id);
+    if (error) {
+      setEntries(previous);
+      showToast("Couldn't delete that item — try again");
+    } else {
+      showToast("Item deleted", true);
     }
   };
 
@@ -894,6 +1197,63 @@ export default function DiscogsTradeList() {
           />
         </div>
 
+        {/* Account */}
+        <div style={{ marginBottom: 18, padding: 12, border: "1px solid #2A2A2A", borderRadius: 10, background: "#0D0D0D" }}>
+          {!session ? (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: authSent ? 8 : 6 }}>
+                <Mail size={15} color="#E11B23" />
+                <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.8, color: "#D8D3CC" }}>SIGN IN TO ADD ITEMS</span>
+              </div>
+              {authSent ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                  <span className="mono" style={{ fontSize: 10.5, color: "#6FA987", lineHeight: 1.45 }}>Magic link sent to {authEmail}. Check your email, then return here.</span>
+                  <button type="button" onClick={() => setAuthSent(false)} className="mono" style={{ border: "none", background: "transparent", color: "#9A9A9A", cursor: "pointer", fontSize: 10.5 }}>Change email</button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 7 }}>
+                  <input type="email" value={authEmail} onChange={(e) => { setAuthEmail(e.target.value); setAuthError(null); }} onKeyDown={(e) => { if (e.key === "Enter") sendMagicLink(); }} placeholder="you@example.com" style={{ flex: 1, minWidth: 0, padding: "9px 10px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13.5, outline: "none" }} />
+                  <button type="button" onClick={sendMagicLink} disabled={authLoading} style={{ border: "none", borderRadius: 7, padding: "0 12px", background: "#E11B23", color: "#F5F0EC", fontWeight: 600, fontSize: 12.5, cursor: authLoading ? "wait" : "pointer" }}>
+                    {authLoading ? <RefreshCw size={14} className="spin" /> : "Send link"}
+                  </button>
+                </div>
+              )}
+              {authError && <div className="mono" style={{ color: "#E8B7B7", fontSize: 10.5, marginTop: 7 }}>{authError}</div>}
+            </>
+          ) : profileLoading ? (
+            <div className="mono" style={{ color: "#9A9A9A", fontSize: 10.5 }}>Loading your account…</div>
+          ) : !profile ? (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <User size={15} color="#E11B23" />
+                <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.8, color: "#D8D3CC" }}>CHOOSE YOUR DISPLAY NAME</span>
+              </div>
+              <div style={{ display: "flex", gap: 7 }}>
+                <input value={profileName} onChange={(e) => { setProfileName(e.target.value); setAuthError(null); }} onKeyDown={(e) => { if (e.key === "Enter") saveProfile(); }} placeholder="e.g. Jamie R." style={{ flex: 1, minWidth: 0, padding: "9px 10px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13.5, outline: "none" }} />
+                <button type="button" onClick={saveProfile} disabled={profileSaving || !profileName.trim()} style={{ border: "none", borderRadius: 7, padding: "0 12px", background: profileName.trim() ? "#E11B23" : "#3A3A3A", color: profileName.trim() ? "#F5F0EC" : "#6B6B6B", fontWeight: 600, fontSize: 12.5, cursor: profileSaving ? "wait" : "pointer" }}>
+                  {profileSaving ? <RefreshCw size={14} className="spin" /> : "Continue"}
+                </button>
+              </div>
+              {authError && <div className="mono" style={{ color: "#E8B7B7", fontSize: 10.5, marginTop: 7 }}>{authError}</div>}
+              <div className="mono" style={{ color: "#6B6B6B", fontSize: 9.5, marginTop: 7 }}>{session.user.email}</div>
+            </>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+              <User size={15} color="#E11B23" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                  <strong style={{ fontSize: 13.5, color: "#F5F0EC" }}>{profile.display_name}</strong>
+                  {profile.is_admin && <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9.5, color: "#C99A3A" }}><ShieldCheck size={11} /> ADMIN</span>}
+                </div>
+                <div className="mono" style={{ color: "#5F5F5F", fontSize: 9.5, marginTop: 2 }}>{session.user.email}</div>
+              </div>
+              <button type="button" onClick={signOut} title="Sign out" className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid #2A2A2A", borderRadius: 7, background: "transparent", color: "#9A9A9A", padding: "6px 8px", fontSize: 10.5, cursor: "pointer" }}>
+                <LogOut size={12} /> Sign out
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Top-level tabs: For Trade / In Search Of */}
         <div
           style={{
@@ -935,7 +1295,7 @@ export default function DiscogsTradeList() {
         </div>
 
         <p style={{ color: "#9A9A9A", fontSize: 14, lineHeight: 1.5, marginTop: 0, marginBottom: 24, textAlign: "center" }}>
-          {activeType.intro} Every entry is tied to a name, be sure to enter it the same way each time.
+          {activeType.intro} Items you add are tied to your signed-in account.
         </p>
 
         {/* Sub-tabs */}
@@ -984,32 +1344,19 @@ export default function DiscogsTradeList() {
         {/* ADD VIEW */}
         {view === "add" && (
           <div>
-            <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
-              YOUR NAME <span style={{ color: "#E11B23" }}>*</span>
-            </label>
-            <div style={{ position: "relative", marginBottom: 6 }}>
-              <User size={16} color="#9A9A9A" style={{ position: "absolute", left: 12, top: 12 }} />
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Jamie R."
-                style={{
-                  width: "100%",
-                  padding: "10px 12px 10px 36px",
-                  borderRadius: 8,
-                  border: name.trim() ? "1px solid #2A2A2A" : "1px solid #7A0E12",
-                  background: "#121212",
-                  color: "#F5F0EC",
-                  fontSize: 14.5,
-                  boxSizing: "border-box",
-                  outline: "none",
-                }}
-              />
-            </div>
-            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", margin: "0 0 20px 2px" }}>
-              Required: every item gets tied to your name, be sure to enter it the same way each time.
-            </p>
+            {!session || !profile ? (
+              <div style={{ padding: "16px 14px", marginBottom: 18, border: "1px solid #2A2A2A", borderRadius: 9, background: "#0D0D0D", color: "#9A9A9A", fontSize: 13, lineHeight: 1.5 }}>
+                Sign in above to add records, import a Discogs wantlist, or upload a spreadsheet. You can still browse the public list.
+              </div>
+            ) : (
+              <div className="mono" style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 10px", marginBottom: 18, borderRadius: 8, background: "#121212", border: "1px solid #2A2A2A", color: "#9A9A9A", fontSize: 10.5 }}>
+                <User size={13} color="#E11B23" />
+                Adding as <strong style={{ color: "#F5F0EC" }}>{name}</strong>
+              </div>
+            )}
 
+            {session && profile && (
+              <>
             <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
               SEARCH DISCOGS
             </label>
@@ -1403,7 +1750,7 @@ export default function DiscogsTradeList() {
                     Choose a .csv or .xlsx file
                   </button>
                   <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", margin: "8px 2px 0" }}>
-                    Columns recognized: Name, Title/Album, Artist, Year, Thumb, URL, Notes, Genre, Format, Condition — any order, any capitalization.
+                    Columns recognized: Title/Album, Artist, Year, Thumb, URL, Notes, Genre, Format, Condition. Imported rows are owned by your account.
                   </p>
                 </div>
               )}
@@ -1445,29 +1792,9 @@ export default function DiscogsTradeList() {
                     </span>
                   </div>
 
-                  {uploadRows.some((r) => !r.name) && (
-                    <div style={{ marginBottom: 12 }}>
-                      <label style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 5 }}>
-                        Some rows don't have a name — use this name for those:
-                      </label>
-                      <input
-                        value={uploadName}
-                        onChange={(e) => setUploadName(e.target.value)}
-                        placeholder="e.g. Jamie R."
-                        style={{
-                          width: "100%",
-                          padding: "8px 10px",
-                          borderRadius: 7,
-                          border: "1px solid #2A2A2A",
-                          background: "#000000",
-                          color: "#F5F0EC",
-                          fontSize: 13.5,
-                          boxSizing: "border-box",
-                          outline: "none",
-                        }}
-                      />
-                    </div>
-                  )}
+                  <div className="mono" style={{ marginBottom: 12, padding: "8px 10px", borderRadius: 7, background: "#0D0D0D", border: "1px solid #2A2A2A", color: "#9A9A9A", fontSize: 10.5 }}>
+                    All imported rows will be added under <strong style={{ color: "#F5F0EC" }}>{name}</strong>. Names in the spreadsheet are ignored so ownership cannot be reassigned by the upload.
+                  </div>
 
                   <div style={{ maxHeight: 220, overflowY: "auto", marginBottom: 12 }}>
                     {uploadRows.map((r, i) => (
@@ -1535,6 +1862,8 @@ export default function DiscogsTradeList() {
                 </div>
               )}
             </div>
+              </>
+            )}
           </div>
         )}
 
@@ -1715,44 +2044,46 @@ export default function DiscogsTradeList() {
                       {g.people.map((p) => {
                         const statusInfo = listType === "trade" && p.status ? STATUS_CONFIG[p.status] : null;
                         const StatusIcon = statusInfo ? statusInfo.icon : null;
-                        const clickable = listType === "trade";
+                        const canModify = !!session && !!profile && (profile.is_admin || p.author_id === session.user.id);
+                        const clickable = listType === "trade" && canModify;
                         return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={clickable ? () => setStatusModal({ id: p.id, title: g.title, current: p.status || null }) : undefined}
-                          className="mono"
-                          title={
-                            !clickable
-                              ? p.name
-                              : statusInfo
-                                ? `Status: ${statusInfo.label} — click to change`
-                                : "Mark status"
-                          }
-                          style={{
-                            fontSize: 11,
-                            background: statusInfo ? "#161616" : "#121212",
-                            color: statusInfo ? statusInfo.color : "#E11B23",
-                            padding: "3px 8px",
-                            borderRadius: 20,
-                            border: `1px solid ${statusInfo ? statusInfo.color + "55" : "#2A2A2A"}`,
-                            textDecoration: "none",
-                            cursor: clickable ? "pointer" : "default",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
-                        >
-                          {StatusIcon && <StatusIcon size={11} color={statusInfo.color} />}
-                          {p.name}
-                          {(p.notes || p.condition) && (
-                            <StickyNote
-                              size={11}
-                              color={statusInfo ? statusInfo.color : "#9A9A9A"}
-                              title={[p.condition, p.notes].filter(Boolean).join(" — ")}
-                            />
-                          )}
-                        </button>
+                          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              onClick={clickable ? () => setStatusModal({ id: p.id, title: g.title, current: p.status || null }) : undefined}
+                              className="mono"
+                              title={!canModify ? p.name : statusInfo ? `Status: ${statusInfo.label} — click to change` : "Mark status"}
+                              style={{
+                                fontSize: 11,
+                                background: statusInfo ? "#161616" : "#121212",
+                                color: statusInfo ? statusInfo.color : "#E11B23",
+                                padding: "3px 8px",
+                                borderRadius: 20,
+                                border: `1px solid ${statusInfo ? statusInfo.color + "55" : "#2A2A2A"}`,
+                                textDecoration: "none",
+                                cursor: clickable ? "pointer" : "default",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              {StatusIcon && <StatusIcon size={11} color={statusInfo.color} />}
+                              {p.name}
+                              {(p.notes || p.condition) && (
+                                <StickyNote
+                                  size={11}
+                                  color={statusInfo ? statusInfo.color : "#9A9A9A"}
+                                  title={[p.condition, p.notes].filter(Boolean).join(" — ")}
+                                />
+                              )}
+                            </button>
+                            {profile?.is_admin && (
+                              <button type="button" onClick={() => deleteEntry(p.id)} title={`Delete ${p.name}'s item`} aria-label={`Delete ${p.name}'s item`} style={{ border: "none", background: "transparent", color: "#6B6B6B", padding: 2, cursor: "pointer" }}>
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                            <TradeComments itemId={p.id} session={session} profile={profile} />
+                          </div>
                         );
                       })}
                     </div>
@@ -1999,10 +2330,11 @@ export default function DiscogsTradeList() {
                         })()}
                       </div>
                       <button
+                        disabled={!profile?.is_admin && item.author_id !== session?.user?.id}
                         onClick={() =>
                           setNoteEditModal({ id: item.id, title: item.title, value: item.notes || "" })
                         }
-                        title="Edit note"
+                        title={profile?.is_admin || item.author_id === session?.user?.id ? "Edit note" : "Only the owner can edit this note"}
                         style={{
                           background: "none",
                           border: "none",
@@ -2039,7 +2371,13 @@ export default function DiscogsTradeList() {
                       )}
                       {listType === "trade" && (
                         <button
-                          onClick={() => setStatusModal({ id: item.id, title: item.title, current: null })}
+                          onClick={() => {
+                             if (!profile?.is_admin && item.author_id !== session?.user?.id) {
+                               showToast("You can only change your own items");
+                               return;
+                             }
+                             setStatusModal({ id: item.id, title: item.title, current: item.status || null });
+                           }}
                           title="Mark status — Claimed, Pending, or Traded"
                           style={{
                             background: "none",
@@ -2160,10 +2498,11 @@ export default function DiscogsTradeList() {
                               )}
                             </div>
                             <button
+                              disabled={!profile?.is_admin && item.author_id !== session?.user?.id}
                               onClick={() =>
                                 setNoteEditModal({ id: item.id, title: item.title, value: item.notes || "" })
                               }
-                              title="Edit note"
+                              title={profile?.is_admin || item.author_id === session?.user?.id ? "Edit note" : "Only the owner can edit this note"}
                               style={{
                                 background: "none",
                                 border: "none",
@@ -2356,29 +2695,9 @@ export default function DiscogsTradeList() {
             </div>
 
             {listModal.source === "other" && (
-              <>
-                <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
-                  YOUR NAME <span style={{ color: "#E11B23" }}>*</span>
-                </label>
-                <input
-                  value={modalForName}
-                  onChange={(e) => setModalForName(e.target.value)}
-                  placeholder="e.g. Jamie R."
-                  autoFocus
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: 8,
-                    border: modalForName.trim() ? "1px solid #2A2A2A" : "1px solid #7A0E12",
-                    background: "#000000",
-                    color: "#F5F0EC",
-                    fontSize: 14.5,
-                    boxSizing: "border-box",
-                    outline: "none",
-                    marginBottom: 14,
-                  }}
-                />
-              </>
+              <div className="mono" style={{ marginBottom: 14, padding: "8px 10px", borderRadius: 8, background: "#0D0D0D", border: "1px solid #2A2A2A", color: "#9A9A9A", fontSize: 10.5 }}>
+                Adding to your list as <strong style={{ color: "#F5F0EC" }}>{name}</strong>
+              </div>
             )}
 
             {isMasterResult(listModal.item) && (
