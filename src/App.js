@@ -2172,6 +2172,24 @@ export default function DiscogsTradeList() {
                         {g.format && <span style={{ color: formatColor(g.format) }}>{g.format}</span>}
                       </div>
                     )}
+                    {listType === "trade" && g.people.some((p) => p.condition) && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 4 }}>
+                        {g.people
+                          .filter((p) => p.condition)
+                          .map((p) => (
+                            <div
+                              key={p.id}
+                              className="mono"
+                              style={{ fontSize: 10.5, color: "#C99A3A", letterSpacing: 0.3, lineHeight: 1.4 }}
+                            >
+                              {g.people.length > 1 && (
+                                <span style={{ color: "#6B6B6B" }}>{p.name}: </span>
+                              )}
+                              Condition: {p.condition}
+                            </div>
+                          ))}
+                      </div>
+                    )}
                     {g.people.some((p) => p.notes) && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 5 }}>
                         {g.people
@@ -2216,9 +2234,6 @@ export default function DiscogsTradeList() {
                               style={{ fontSize: 11, background: "#121212", color: "#F5F0EC", padding: "3px 8px", borderRadius: 20, border: "1px solid #2A2A2A", display: "inline-flex", alignItems: "center", gap: 4 }}
                             >
                               {p.name}
-                              {p.condition && (
-                                <StickyNote size={11} color="#9A9A9A" title={`Condition: ${p.condition}`} />
-                              )}
                             </span>
                             {listType === "trade" && (
                               <button
