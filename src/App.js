@@ -13,6 +13,12 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const TABLE = "tradelist";
 
+// Row ids are generated client-side. crypto.randomUUID needs a secure context
+// (https or localhost) and is missing on Safari < 15.4, so fall back to a
+// timestamp + random suffix there.
+const newId = () =>
+  crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
 // status states for items currently up For Trade — n/a for In Search Of items
 const STATUS_CONFIG = {
   available: { label: "Available", icon: CheckCircle2, color: "#8FE3C1" },
@@ -174,7 +180,7 @@ function TradeComments({ itemId, session, profile }) {
     setSubmitting(true);
     try {
       const comment = {
-        id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        id: newId(),
         item_id: itemId,
         author_id: session.user.id,
         author_name: profile.display_name,
@@ -725,7 +731,7 @@ export default function DiscogsTradeList() {
     const masterFormatOverride =
       modalFormatChoice === "vinyl" ? "Vinyl" : modalFormatChoice === "cd" ? "CD" : modalFormatChoice === "both" ? "Vinyl or CD" : null;
     const entry = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: newId(),
       author_id: session.user.id,
       type: listModal.type,
       name: finalName,
@@ -805,6 +811,11 @@ export default function DiscogsTradeList() {
 
   const confirmDiscogsImport = async () => {
     if (!discogsWantItems) return;
+    if (!session?.user?.id || !profile?.display_name) {
+      showToast("Sign in above to import a wantlist");
+      setDiscogsConfirmOpen(false);
+      return;
+    }
     const finalName = name.trim();
     if (!finalName) {
       showToast("Add your name first");
@@ -826,7 +837,8 @@ export default function DiscogsTradeList() {
     }
     setDiscogsAdding(true);
     const newEntries = fresh.map((it) => ({
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: newId(),
+      author_id: session.user.id,
       type: "seeking",
       name: finalName,
       title: it.title,
@@ -978,7 +990,7 @@ export default function DiscogsTradeList() {
     const newEntries = uploadRows.map((r) => {
       const title = r.artist ? `${r.artist} – ${r.title}` : r.title;
       return {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        id: newId(),
         author_id: session.user.id,
         type: listType,
         name: fallbackName,
