@@ -81,8 +81,8 @@ function usePageChrome() {
     const prevHtmlBg = document.documentElement.style.background;
     const prevBodyBg = document.body.style.background;
     const prevBodyMargin = document.body.style.margin;
-    document.documentElement.style.background = "#000000";
-    document.body.style.background = "#000000";
+    document.documentElement.style.background = "#574A4C";
+    document.body.style.background = "#574A4C";
     document.body.style.margin = "0";
 
     let meta = document.querySelector('meta[name="viewport"]');
@@ -377,6 +377,7 @@ export default function DiscogsTradeList() {
   const [view, setView] = useState("byItem"); // byItem | add
   const [personFilter, setPersonFilter] = useState("all");
   const [itemGenreFilter, setItemGenreFilter] = useState("all");
+  const [itemFormatFilter, setItemFormatFilter] = useState("all");
   const [itemSearchQuery, setItemSearchQuery] = useState("");
   const [toast, setToast] = useState(null);
   const [toastSuccess, setToastSuccess] = useState(false);
@@ -580,6 +581,7 @@ export default function DiscogsTradeList() {
     setView("byItem");
     setPersonFilter("all");
     setItemGenreFilter("all");
+    setItemFormatFilter("all");
     setItemSearchQuery("");
     setResults([]);
     setSearchError(null);
@@ -1126,6 +1128,15 @@ export default function DiscogsTradeList() {
     return itemGenre.toLowerCase().includes(filter.toLowerCase());
   };
 
+  const formatMatches = (itemFormat, filter) => {
+    if (filter === "all") return true;
+    if (!itemFormat) return false;
+    const format = itemFormat.toLowerCase();
+    if (filter === "cd") return /\\bcds?\\b/.test(format);
+    if (filter === "vinyl") return /\\bvinyl\\b/.test(format);
+    return false;
+  };
+
   // everything below is scoped to the active tab (For Trade vs In Search
   // Of) first — separate datasets sharing one table and one set of views.
   const scopedEntries = entries.filter((e) => e.type === listType);
@@ -1145,6 +1156,7 @@ export default function DiscogsTradeList() {
     if (e.unwanted) return;
     if (personFilter !== "all" && e.name !== personFilter) return;
     if (!genreMatches(e.genre, itemGenreFilter)) return;
+    if (!formatMatches(e.format, itemFormatFilter)) return;
     if (!byItem[e.title]) byItem[e.title] = { title: e.title, thumb: e.thumb, image_full: e.image_full || null, url: e.url || null, genre: e.genre || null, format: e.format || null, people: [] };
     if (!byItem[e.title].url && e.url) byItem[e.title].url = e.url;
     if (!byItem[e.title].genre && e.genre) byItem[e.title].genre = e.genre;
@@ -1190,6 +1202,7 @@ export default function DiscogsTradeList() {
     .filter((e) => e.unwanted)
     .filter((e) => personFilter === "all" || e.name === personFilter)
     .filter((e) => genreMatches(e.genre, itemGenreFilter))
+    .filter((e) => formatMatches(e.format, itemFormatFilter))
     .sort((a, b) => a.title.localeCompare(b.title));
 
   const discogsSelectedCount = discogsWantItems
@@ -1997,7 +2010,7 @@ export default function DiscogsTradeList() {
               </div>
             </div>
 
-            {(personOptions.length > 0 || allGenres.length > 0) && (
+            {(personOptions.length > 0 || allGenres.length > 0 || scopedEntries.some((e) => !e.unwanted && e.format)) && (
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
                 {personOptions.length > 0 && (
                   <div style={{ flex: 1, minWidth: 140 }}>
@@ -2027,6 +2040,34 @@ export default function DiscogsTradeList() {
                           {personName} ({count})
                         </option>
                       ))}
+                    </select>
+                  </div>
+                )}
+                {scopedEntries.some((e) => !e.unwanted && e.format) && (
+                  <div style={{ flex: 1, minWidth: 140 }}>
+                    <label htmlFor="by-item-format" style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+                      FILTER BY FORMAT
+                    </label>
+                    <select
+                      id="by-item-format"
+                      value={itemFormatFilter}
+                      onChange={(e) => setItemFormatFilter(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "9px 12px",
+                        borderRadius: 8,
+                        border: "1px solid #2A2A2A",
+                        background: "#121212",
+                        color: "#F5F0EC",
+                        fontSize: 14,
+                        boxSizing: "border-box",
+                        outline: "none",
+                        fontFamily: "'Barlow', sans-serif",
+                      }}
+                    >
+                      <option value="all">All</option>
+                      <option value="cd">CD</option>
+                      <option value="vinyl">Vinyl</option>
                     </select>
                   </div>
                 )}
@@ -2075,9 +2116,11 @@ export default function DiscogsTradeList() {
                       ? `Nothing of ${personFilter}'s matches that genre.`
                       : itemGenreFilter !== "all"
                         ? "Nothing matches that genre."
-                        : personFilter !== "all"
-                          ? `${personFilter} has nothing on this list.`
-                          : activeType.emptyAdd
+                        : itemFormatFilter !== "all"
+                          ? `Nothing matches the ${itemFormatFilter === "cd" ? "CD" : "Vinyl"} format.`
+                          : personFilter !== "all"
+                            ? `${personFilter} has nothing on this list.`
+                            : activeType.emptyAdd
                 }
               />
             ) : (
