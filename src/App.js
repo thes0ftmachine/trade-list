@@ -659,9 +659,9 @@ export default function DiscogsTradeList() {
     const f = format.toLowerCase();
     const hasVinyl = /vinyl/.test(f);
     const hasCD = /\bcds?\b/.test(f);
-    if (hasVinyl && hasCD) return "#BA86B6";
+    if (hasVinyl && hasCD) return "#5B9BD5";
     if (hasVinyl) return "#4CAF50";
-    if (hasCD) return "#5B9BD5";
+    if (hasCD) return "#e04730";
     return "#9A9A9A";
   };
 
