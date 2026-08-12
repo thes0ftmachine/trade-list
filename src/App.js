@@ -25,8 +25,8 @@ const FAVICON_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAA
 
 // palette — dark, single red accent, same visual language throughout
 const COL = {
-  bg: "#000000",
-  panel: "#121212",
+  bg: "#574A4C",
+  panel: "#39302B",
   panelBorder: "#2A2A2A",
   line: "#eea450",
   red: "#9D7047",
