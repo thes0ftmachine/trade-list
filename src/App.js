@@ -2530,57 +2530,56 @@ export default function DiscogsTradeList() {
                                 <X size={14} strokeWidth={2.5} />
                               </button>
                             )}
-                            {listType !== "trade" && (
-                              <TradeComments itemId={p.id} session={session} profile={profile} />
-                            )}
                           </div>
                         );
                       })}
+                      {/* Sized to sit level with the name chips it follows. One
+                          button per item rather than per person — it copies the
+                          item onto your own list whoever happens to be listing it. */}
+                      {listType !== "trade" && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openListModal(
+                              { title: g.title, thumb: g.thumb, image_full: g.image_full || null, url: g.url, genre: g.genre || null, format: g.format || null },
+                              "other"
+                            )
+                          }
+                          className="mono"
+                          title="Add this to your own want list"
+                          style={{
+                            fontSize: 11,
+                            background: "none",
+                            color: "#F5F0EC",
+                            padding: "3px 8px",
+                            borderRadius: 20,
+                            border: "1px solid #9D7047",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Plus size={11} />
+                          {activeType.addLabel}
+                        </button>
+                      )}
                     </div>
                   </div>
-                  {/* For Trade puts comments in the right-hand slot; In Search Of keeps
-                      the add-to-my-list button there and comments down in the chip row. */}
-                  {listType === "trade" ? (
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-                      {g.people.map((p) => (
-                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                          {g.people.length > 1 && (
-                            <span className="mono" style={{ fontSize: 9.5, color: "#6B6B6B" }}>
-                              {p.name}
-                            </span>
-                          )}
-                          <TradeComments itemId={p.id} session={session} profile={profile} popover />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() =>
-                        openListModal(
-                          { title: g.title, thumb: g.thumb, image_full: g.image_full || null, url: g.url, genre: g.genre || null, format: g.format || null },
-                          "other"
-                        )
-                      }
-                      title="Add this to your own want list"
-                      style={{
-                        background: "none",
-                        border: "1px solid #9D7047",
-                        color: "#F5F0EC",
-                        cursor: "pointer",
-                        padding: "6px 10px",
-                        borderRadius: 7,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Plus size={13} />
-                      {activeType.addLabel}
-                    </button>
-                  )}
+                  {/* Comments hold the right-hand slot on both tabs, so the
+                      thread opens in the same place wherever you are. */}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+                    {g.people.map((p) => (
+                      <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        {g.people.length > 1 && (
+                          <span className="mono" style={{ fontSize: 9.5, color: "#6B6B6B" }}>
+                            {p.name}
+                          </span>
+                        )}
+                        <TradeComments itemId={p.id} session={session} profile={profile} popover />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))
             )}
