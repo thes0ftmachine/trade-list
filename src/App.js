@@ -81,8 +81,8 @@ function usePageChrome() {
     const prevHtmlBg = document.documentElement.style.background;
     const prevBodyBg = document.body.style.background;
     const prevBodyMargin = document.body.style.margin;
-    document.documentElement.style.background = "#574A4C";
-    document.body.style.background = "#574A4C";
+    document.documentElement.style.background = "#000000";
+    document.body.style.background = "#000000";
     document.body.style.margin = "0";
 
     let meta = document.querySelector('meta[name="viewport"]');
@@ -153,6 +153,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
   const [expanded, setExpanded] = useState(false);
   const [comments, setComments] = useState([]);
   const [body, setBody] = useState("");
+  const [replyTo, setReplyTo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -175,6 +176,8 @@ function TradeComments({ itemId, session, profile, popover = false }) {
 
   useEffect(() => {
     loadComments();
+    setReplyTo(null);
+    setBody("");
   }, [loadComments]);
 
   const submitComment = async () => {
@@ -188,10 +191,12 @@ function TradeComments({ itemId, session, profile, popover = false }) {
         author_id: session.user.id,
         author_name: profile.display_name,
         body: trimmed,
+        reply_to: replyTo?.id || null,
       };
       const { error } = await supabase.from("trade_comments").insert([comment]);
       if (error) throw error;
       setBody("");
+      setReplyTo(null);
       await loadComments();
     } catch (e) {
       // Keep comment errors local; the main app remains usable.
@@ -203,9 +208,88 @@ function TradeComments({ itemId, session, profile, popover = false }) {
   const deleteComment = async (id) => {
     if (!profile?.is_admin) return;
     const previous = comments;
-    setComments((current) => current.filter((c) => c.id !== id));
+    setComments((current) => current.filter((c) => c.id !== id && c.reply_to !== id));
     const { error } = await supabase.from("trade_comments").delete().eq("id", id);
     if (error) setComments(previous);
+  };
+
+  const topLevelComments = comments.filter((comment) => !comment.reply_to);
+  const repliesByParent = comments.reduce((groups, comment) => {
+    if (comment.reply_to) {
+      if (!groups[comment.reply_to]) groups[comment.reply_to] = [];
+      groups[comment.reply_to].push(comment);
+    }
+    return groups;
+  }, {});
+
+  const beginReply = (comment) => {
+    setReplyTo(comment);
+    setBody("");
+  };
+
+  const renderComment = (comment, isReply = false) => {
+    const replies = repliesByParent[comment.id] || [];
+
+    return (
+      <div key={comment.id} style={{ marginLeft: isReply ? 24 : 0 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 7, flexWrap: "wrap" }}>
+              <strong style={{ fontSize: 11.5, color: "#D8D3CC" }}>{comment.author_name}</strong>
+              <span className="mono" style={{ fontSize: 9.5, color: "#5F5F5F" }}>
+                {comment.created_at ? new Date(comment.created_at).toLocaleString() : ""}
+              </span>
+            </div>
+            <div style={{ fontSize: 12.5, color: "#BDB8B2", lineHeight: 1.45, marginTop: 2, whiteSpace: "pre-wrap" }}>
+              {comment.body}
+            </div>
+            {session && profile && (
+              <button
+                type="button"
+                onClick={() => beginReply(comment)}
+                className="mono"
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "#77736E",
+                  padding: "4px 0 0",
+                  fontSize: 9.5,
+                  cursor: "pointer",
+                }}
+              >
+                Reply
+              </button>
+            )}
+          </div>
+          {profile?.is_admin && (
+            <button
+              type="button"
+              onClick={() => deleteComment(comment.id)}
+              title="Delete comment"
+              aria-label="Delete comment"
+              style={{ border: "none", background: "transparent", color: "#6B6B6B", padding: 2, cursor: "pointer" }}
+            >
+              <X size={13} strokeWidth={2.5} />
+            </button>
+          )}
+        </div>
+
+        {replies.length > 0 && (
+          <div
+            style={{
+              marginTop: 7,
+              paddingLeft: 10,
+              borderLeft: "1px solid #2A2A2A",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            {replies.map((reply) => renderComment(reply, true))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -259,75 +343,80 @@ function TradeComments({ itemId, session, profile, popover = false }) {
               No comments yet.
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: session ? 10 : 0 }}>
-              {comments.map((comment) => (
-                <div key={comment.id} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 7, flexWrap: "wrap" }}>
-                      <strong style={{ fontSize: 11.5, color: "#D8D3CC" }}>{comment.author_name}</strong>
-                      <span className="mono" style={{ fontSize: 9.5, color: "#5F5F5F" }}>
-                        {comment.created_at ? new Date(comment.created_at).toLocaleString() : ""}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 12.5, color: "#BDB8B2", lineHeight: 1.45, marginTop: 2, whiteSpace: "pre-wrap" }}>
-                      {comment.body}
-                    </div>
-                  </div>
-                  {profile?.is_admin && (
-                    <button
-                      type="button"
-                      onClick={() => deleteComment(comment.id)}
-                      title="Delete comment"
-                      aria-label="Delete comment"
-                      style={{ border: "none", background: "transparent", color: "#6B6B6B", padding: 2, cursor: "pointer" }}
-                    >
-                      <X size={13} strokeWidth={2.5} />
-                    </button>
-                  )}
-                </div>
-              ))}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: session ? 10 : 0 }}>
+              {topLevelComments.map((comment) => renderComment(comment))}
             </div>
           )}
 
           {session && profile ? (
-            <div style={{ display: "flex", gap: 7, alignItems: "flex-end" }}>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Add a comment…"
-                rows={2}
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  resize: "vertical",
-                  padding: "8px 10px",
-                  borderRadius: 7,
-                  border: "1px solid #2A2A2A",
-                  background: "#000000",
-                  color: "#F5F0EC",
-                  fontSize: 12.5,
-                  outline: "none",
-                  fontFamily: "'Barlow', sans-serif",
-                }}
-              />
-              <button
-                type="button"
-                onClick={submitComment}
-                disabled={!body.trim() || submitting}
-                style={{
-                  border: "none",
-                  borderRadius: 7,
-                  padding: "8px 11px",
-                  background: body.trim() && !submitting ? "#9D7047" : "#3A3A3A",
-                  color: body.trim() && !submitting ? "#F5F0EC" : "#6B6B6B",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: body.trim() && !submitting ? "pointer" : "not-allowed",
-                  flexShrink: 0,
-                }}
-              >
-                {submitting ? <RefreshCw size={13} className="spin" /> : "Post"}
-              </button>
+            <div>
+              {replyTo && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    marginBottom: 6,
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    background: "#121212",
+                    border: "1px solid #242424",
+                  }}
+                >
+                  <div className="mono" style={{ fontSize: 9.5, color: "#8A8580", minWidth: 0 }}>
+                    Replying to <strong style={{ color: "#BDB8B2" }}>{replyTo.author_name}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setReplyTo(null); setBody(""); }}
+                    className="mono"
+                    style={{ border: "none", background: "transparent", color: "#77736E", padding: 0, fontSize: 9.5, cursor: "pointer" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 7, alignItems: "flex-end" }}>
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder={replyTo ? "Write a reply…" : "Add a comment…"}
+                  rows={2}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    resize: "vertical",
+                    padding: "8px 10px",
+                    borderRadius: 7,
+                    border: "1px solid #2A2A2A",
+                    background: "#000000",
+                    color: "#F5F0EC",
+                    fontSize: 12.5,
+                    outline: "none",
+                    fontFamily: "'Barlow', sans-serif",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={submitComment}
+                  disabled={!body.trim() || submitting}
+                  style={{
+                    border: "none",
+                    borderRadius: 7,
+                    padding: "8px 11px",
+                    background: body.trim() && !submitting ? "#9D7047" : "#3A3A3A",
+                    color: body.trim() && !submitting ? "#F5F0EC" : "#6B6B6B",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: body.trim() && !submitting ? "pointer" : "not-allowed",
+                    flexShrink: 0,
+                  }}
+                >
+                  {submitting ? <RefreshCw size={13} className="spin" /> : replyTo ? "Reply" : "Post"}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>
@@ -377,7 +466,6 @@ export default function DiscogsTradeList() {
   const [view, setView] = useState("byItem"); // byItem | add
   const [personFilter, setPersonFilter] = useState("all");
   const [itemGenreFilter, setItemGenreFilter] = useState("all");
-  const [itemFormatFilter, setItemFormatFilter] = useState("all");
   const [itemSearchQuery, setItemSearchQuery] = useState("");
   const [toast, setToast] = useState(null);
   const [toastSuccess, setToastSuccess] = useState(false);
@@ -581,7 +669,6 @@ export default function DiscogsTradeList() {
     setView("byItem");
     setPersonFilter("all");
     setItemGenreFilter("all");
-    setItemFormatFilter("all");
     setItemSearchQuery("");
     setResults([]);
     setSearchError(null);
@@ -1128,15 +1215,6 @@ export default function DiscogsTradeList() {
     return itemGenre.toLowerCase().includes(filter.toLowerCase());
   };
 
-  const formatMatches = (itemFormat, filter) => {
-    if (filter === "all") return true;
-    if (!itemFormat) return false;
-    const format = itemFormat.toLowerCase();
-    if (filter === "cd") return /\\bcds?\\b/.test(format);
-    if (filter === "vinyl") return /\\bvinyl\\b/.test(format);
-    return false;
-  };
-
   // everything below is scoped to the active tab (For Trade vs In Search
   // Of) first — separate datasets sharing one table and one set of views.
   const scopedEntries = entries.filter((e) => e.type === listType);
@@ -1156,7 +1234,6 @@ export default function DiscogsTradeList() {
     if (e.unwanted) return;
     if (personFilter !== "all" && e.name !== personFilter) return;
     if (!genreMatches(e.genre, itemGenreFilter)) return;
-    if (!formatMatches(e.format, itemFormatFilter)) return;
     if (!byItem[e.title]) byItem[e.title] = { title: e.title, thumb: e.thumb, image_full: e.image_full || null, url: e.url || null, genre: e.genre || null, format: e.format || null, people: [] };
     if (!byItem[e.title].url && e.url) byItem[e.title].url = e.url;
     if (!byItem[e.title].genre && e.genre) byItem[e.title].genre = e.genre;
@@ -1202,7 +1279,6 @@ export default function DiscogsTradeList() {
     .filter((e) => e.unwanted)
     .filter((e) => personFilter === "all" || e.name === personFilter)
     .filter((e) => genreMatches(e.genre, itemGenreFilter))
-    .filter((e) => formatMatches(e.format, itemFormatFilter))
     .sort((a, b) => a.title.localeCompare(b.title));
 
   const discogsSelectedCount = discogsWantItems
@@ -2010,7 +2086,7 @@ export default function DiscogsTradeList() {
               </div>
             </div>
 
-            {(personOptions.length > 0 || allGenres.length > 0 || scopedEntries.some((e) => !e.unwanted && e.format)) && (
+            {(personOptions.length > 0 || allGenres.length > 0) && (
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
                 {personOptions.length > 0 && (
                   <div style={{ flex: 1, minWidth: 140 }}>
@@ -2040,34 +2116,6 @@ export default function DiscogsTradeList() {
                           {personName} ({count})
                         </option>
                       ))}
-                    </select>
-                  </div>
-                )}
-                {scopedEntries.some((e) => !e.unwanted && e.format) && (
-                  <div style={{ flex: 1, minWidth: 140 }}>
-                    <label htmlFor="by-item-format" style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
-                      FILTER BY FORMAT
-                    </label>
-                    <select
-                      id="by-item-format"
-                      value={itemFormatFilter}
-                      onChange={(e) => setItemFormatFilter(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "9px 12px",
-                        borderRadius: 8,
-                        border: "1px solid #2A2A2A",
-                        background: "#121212",
-                        color: "#F5F0EC",
-                        fontSize: 14,
-                        boxSizing: "border-box",
-                        outline: "none",
-                        fontFamily: "'Barlow', sans-serif",
-                      }}
-                    >
-                      <option value="all">All</option>
-                      <option value="cd">CD</option>
-                      <option value="vinyl">Vinyl</option>
                     </select>
                   </div>
                 )}
@@ -2116,11 +2164,9 @@ export default function DiscogsTradeList() {
                       ? `Nothing of ${personFilter}'s matches that genre.`
                       : itemGenreFilter !== "all"
                         ? "Nothing matches that genre."
-                        : itemFormatFilter !== "all"
-                          ? `Nothing matches the ${itemFormatFilter === "cd" ? "CD" : "Vinyl"} format.`
-                          : personFilter !== "all"
-                            ? `${personFilter} has nothing on this list.`
-                            : activeType.emptyAdd
+                        : personFilter !== "all"
+                          ? `${personFilter} has nothing on this list.`
+                          : activeType.emptyAdd
                 }
               />
             ) : (
@@ -2172,24 +2218,6 @@ export default function DiscogsTradeList() {
                         {g.format && <span style={{ color: formatColor(g.format) }}>{g.format}</span>}
                       </div>
                     )}
-                    {listType === "trade" && g.people.some((p) => p.condition) && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 4 }}>
-                        {g.people
-                          .filter((p) => p.condition)
-                          .map((p) => (
-                            <div
-                              key={p.id}
-                              className="mono"
-                              style={{ fontSize: 10.5, color: "#C99A3A", letterSpacing: 0.3, lineHeight: 1.4 }}
-                            >
-                              {g.people.length > 1 && (
-                                <span style={{ color: "#6B6B6B" }}>{p.name}: </span>
-                              )}
-                              Condition: {p.condition}
-                            </div>
-                          ))}
-                      </div>
-                    )}
                     {g.people.some((p) => p.notes) && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 5 }}>
                         {g.people
@@ -2234,6 +2262,9 @@ export default function DiscogsTradeList() {
                               style={{ fontSize: 11, background: "#121212", color: "#F5F0EC", padding: "3px 8px", borderRadius: 20, border: "1px solid #2A2A2A", display: "inline-flex", alignItems: "center", gap: 4 }}
                             >
                               {p.name}
+                              {p.condition && (
+                                <StickyNote size={11} color="#9A9A9A" title={`Condition: ${p.condition}`} />
+                              )}
                             </span>
                             {listType === "trade" && (
                               <button
