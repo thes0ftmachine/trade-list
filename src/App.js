@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, Disc3, User, Plus, X, RefreshCw, ListMusic, Users, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck } from "lucide-react";
+import { Search, Disc3, User, Plus, X, RefreshCw, ListMusic, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck } from "lucide-react";
 import * as XLSX from "xlsx";
 import { createClient } from "@supabase/supabase-js";
 import { Analytics } from "@vercel/analytics/react";
@@ -146,10 +146,14 @@ function RecordThumb({ src, alt, size = 56, onClick }) {
 }
 
 
-function TradeComments({ itemId, session, profile }) {
+// popover: render the expanded thread as an absolutely-positioned panel hanging
+// off the button instead of inline. Needed where the button sits in a narrow
+// right-hand column that would otherwise squash the thread to its own width.
+function TradeComments({ itemId, session, profile, popover = false }) {
   const [expanded, setExpanded] = useState(false);
   const [comments, setComments] = useState([]);
   const [body, setBody] = useState("");
+  const [replyTo, setReplyTo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -172,6 +176,8 @@ function TradeComments({ itemId, session, profile }) {
 
   useEffect(() => {
     loadComments();
+    setReplyTo(null);
+    setBody("");
   }, [loadComments]);
 
   const submitComment = async () => {
@@ -185,10 +191,12 @@ function TradeComments({ itemId, session, profile }) {
         author_id: session.user.id,
         author_name: profile.display_name,
         body: trimmed,
+        reply_to: replyTo?.id || null,
       };
       const { error } = await supabase.from("trade_comments").insert([comment]);
       if (error) throw error;
       setBody("");
+      setReplyTo(null);
       await loadComments();
     } catch (e) {
       // Keep comment errors local; the main app remains usable.
@@ -200,13 +208,92 @@ function TradeComments({ itemId, session, profile }) {
   const deleteComment = async (id) => {
     if (!profile?.is_admin) return;
     const previous = comments;
-    setComments((current) => current.filter((c) => c.id !== id));
+    setComments((current) => current.filter((c) => c.id !== id && c.reply_to !== id));
     const { error } = await supabase.from("trade_comments").delete().eq("id", id);
     if (error) setComments(previous);
   };
 
+  const topLevelComments = comments.filter((comment) => !comment.reply_to);
+  const repliesByParent = comments.reduce((groups, comment) => {
+    if (comment.reply_to) {
+      if (!groups[comment.reply_to]) groups[comment.reply_to] = [];
+      groups[comment.reply_to].push(comment);
+    }
+    return groups;
+  }, {});
+
+  const beginReply = (comment) => {
+    setReplyTo(comment);
+    setBody("");
+  };
+
+  const renderComment = (comment, isReply = false) => {
+    const replies = repliesByParent[comment.id] || [];
+
+    return (
+      <div key={comment.id} style={{ marginLeft: isReply ? 24 : 0 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 7, flexWrap: "wrap" }}>
+              <strong style={{ fontSize: 11.5, color: "#D8D3CC" }}>{comment.author_name}</strong>
+              <span className="mono" style={{ fontSize: 9.5, color: "#5F5F5F" }}>
+                {comment.created_at ? new Date(comment.created_at).toLocaleString() : ""}
+              </span>
+            </div>
+            <div style={{ fontSize: 12.5, color: "#BDB8B2", lineHeight: 1.45, marginTop: 2, whiteSpace: "pre-wrap" }}>
+              {comment.body}
+            </div>
+            {session && profile && (
+              <button
+                type="button"
+                onClick={() => beginReply(comment)}
+                className="mono"
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "#77736E",
+                  padding: "4px 0 0",
+                  fontSize: 9.5,
+                  cursor: "pointer",
+                }}
+              >
+                Reply
+              </button>
+            )}
+          </div>
+          {profile?.is_admin && (
+            <button
+              type="button"
+              onClick={() => deleteComment(comment.id)}
+              title="Delete comment"
+              aria-label="Delete comment"
+              style={{ border: "none", background: "transparent", color: "#6B6B6B", padding: 2, cursor: "pointer" }}
+            >
+              <X size={13} strokeWidth={2.5} />
+            </button>
+          )}
+        </div>
+
+        {replies.length > 0 && (
+          <div
+            style={{
+              marginTop: 7,
+              paddingLeft: 10,
+              borderLeft: "1px solid #2A2A2A",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            {replies.map((reply) => renderComment(reply, true))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div style={{ marginTop: 8, paddingLeft: 0 }}>
+    <div style={{ marginTop: popover ? 0 : 8, paddingLeft: 0, position: popover ? "relative" : undefined }}>
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -229,7 +316,26 @@ function TradeComments({ itemId, session, profile }) {
       </button>
 
       {expanded && (
-        <div style={{ marginTop: 8, border: "1px solid #2A2A2A", borderRadius: 9, background: "#0A0A0A", padding: 10 }}>
+        <div
+          style={
+            popover
+              ? {
+                  position: "absolute",
+                  top: "100%",
+                  right: 0,
+                  marginTop: 8,
+                  width: "min(360px, 78vw)",
+                  border: "1px solid #2A2A2A",
+                  borderRadius: 9,
+                  background: "#0A0A0A",
+                  padding: 10,
+                  textAlign: "left",
+                  boxShadow: "0 10px 28px rgba(0,0,0,0.65)",
+                  zIndex: 20,
+                }
+              : { marginTop: 8, border: "1px solid #2A2A2A", borderRadius: 9, background: "#0A0A0A", padding: 10 }
+          }
+        >
           {loading ? (
             <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>Loading comments…</div>
           ) : comments.length === 0 ? (
@@ -237,75 +343,80 @@ function TradeComments({ itemId, session, profile }) {
               No comments yet.
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: session ? 10 : 0 }}>
-              {comments.map((comment) => (
-                <div key={comment.id} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 7, flexWrap: "wrap" }}>
-                      <strong style={{ fontSize: 11.5, color: "#D8D3CC" }}>{comment.author_name}</strong>
-                      <span className="mono" style={{ fontSize: 9.5, color: "#5F5F5F" }}>
-                        {comment.created_at ? new Date(comment.created_at).toLocaleString() : ""}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 12.5, color: "#BDB8B2", lineHeight: 1.45, marginTop: 2, whiteSpace: "pre-wrap" }}>
-                      {comment.body}
-                    </div>
-                  </div>
-                  {profile?.is_admin && (
-                    <button
-                      type="button"
-                      onClick={() => deleteComment(comment.id)}
-                      title="Delete comment"
-                      aria-label="Delete comment"
-                      style={{ border: "none", background: "transparent", color: "#6B6B6B", padding: 2, cursor: "pointer" }}
-                    >
-                      <X size={13} strokeWidth={2.5} />
-                    </button>
-                  )}
-                </div>
-              ))}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: session ? 10 : 0 }}>
+              {topLevelComments.map((comment) => renderComment(comment))}
             </div>
           )}
 
           {session && profile ? (
-            <div style={{ display: "flex", gap: 7, alignItems: "flex-end" }}>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Add a comment…"
-                rows={2}
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  resize: "vertical",
-                  padding: "8px 10px",
-                  borderRadius: 7,
-                  border: "1px solid #2A2A2A",
-                  background: "#000000",
-                  color: "#F5F0EC",
-                  fontSize: 12.5,
-                  outline: "none",
-                  fontFamily: "'Barlow', sans-serif",
-                }}
-              />
-              <button
-                type="button"
-                onClick={submitComment}
-                disabled={!body.trim() || submitting}
-                style={{
-                  border: "none",
-                  borderRadius: 7,
-                  padding: "8px 11px",
-                  background: body.trim() && !submitting ? "#9D7047" : "#3A3A3A",
-                  color: body.trim() && !submitting ? "#F5F0EC" : "#6B6B6B",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: body.trim() && !submitting ? "pointer" : "not-allowed",
-                  flexShrink: 0,
-                }}
-              >
-                {submitting ? <RefreshCw size={13} className="spin" /> : "Post"}
-              </button>
+            <div>
+              {replyTo && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    marginBottom: 6,
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    background: "#121212",
+                    border: "1px solid #242424",
+                  }}
+                >
+                  <div className="mono" style={{ fontSize: 9.5, color: "#8A8580", minWidth: 0 }}>
+                    Replying to <strong style={{ color: "#BDB8B2" }}>{replyTo.author_name}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setReplyTo(null); setBody(""); }}
+                    className="mono"
+                    style={{ border: "none", background: "transparent", color: "#77736E", padding: 0, fontSize: 9.5, cursor: "pointer" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 7, alignItems: "flex-end" }}>
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder={replyTo ? "Write a reply…" : "Add a comment…"}
+                  rows={2}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    resize: "vertical",
+                    padding: "8px 10px",
+                    borderRadius: 7,
+                    border: "1px solid #2A2A2A",
+                    background: "#000000",
+                    color: "#F5F0EC",
+                    fontSize: 12.5,
+                    outline: "none",
+                    fontFamily: "'Barlow', sans-serif",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={submitComment}
+                  disabled={!body.trim() || submitting}
+                  style={{
+                    border: "none",
+                    borderRadius: 7,
+                    padding: "8px 11px",
+                    background: body.trim() && !submitting ? "#9D7047" : "#3A3A3A",
+                    color: body.trim() && !submitting ? "#F5F0EC" : "#6B6B6B",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: body.trim() && !submitting ? "pointer" : "not-allowed",
+                    flexShrink: 0,
+                  }}
+                >
+                  {submitting ? <RefreshCw size={13} className="spin" /> : replyTo ? "Reply" : "Post"}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>
@@ -352,11 +463,10 @@ export default function DiscogsTradeList() {
 
   const [entries, setEntries] = useState([]);
   const [loadingEntries, setLoadingEntries] = useState(true);
-  const [view, setView] = useState("add"); // add | byItem | byPerson
+  const [view, setView] = useState("byItem"); // byItem | add
   const [personFilter, setPersonFilter] = useState("all");
   const [itemGenreFilter, setItemGenreFilter] = useState("all");
   const [itemSearchQuery, setItemSearchQuery] = useState("");
-  const [personGenreFilter, setPersonGenreFilter] = useState("all");
   const [toast, setToast] = useState(null);
   const [toastSuccess, setToastSuccess] = useState(false);
 
@@ -370,12 +480,15 @@ export default function DiscogsTradeList() {
   // reflect one representative pressing's format, often misleadingly "CD"
   // even when most people actually want vinyl. "vinyl" | "cd" | "both" | null
   const [modalFormatChoice, setModalFormatChoice] = useState(null);
-  const [expandedRemoved, setExpandedRemoved] = useState({}); // { [personName]: bool }
-  const [collapsedPeople, setCollapsedPeople] = useState({});
-  const [collapsedStatusBuckets, setCollapsedStatusBuckets] = useState({});
+  const [showUnavailable, setShowUnavailable] = useState(false);
 
   // status popup (For Trade items only) — { id, title, current } | null
   const [statusModal, setStatusModal] = useState(null);
+
+  // remove popup — { id, title, name, unwanted } | null. Clicking the X asks
+  // whether to mark the item unavailable (reversible) or delete the row for
+  // good; rows already unavailable only get the permanent option.
+  const [removeModal, setRemoveModal] = useState(null);
 
   // edit-notes popup — { id, title, value } | null
   const [noteEditModal, setNoteEditModal] = useState(null);
@@ -547,17 +660,16 @@ export default function DiscogsTradeList() {
     loadEntries();
   }, [loadEntries]);
 
-  // Switching top-level tabs resets the sub-view back to Add, and clears
+  // Switching top-level tabs resets the sub-view back to By item, and clears
   // filters/search so a stale filter from one tab doesn't silently hide
   // everything on the other.
   const switchListType = (key) => {
     if (key === listType) return;
     setListType(key);
-    setView("add");
+    setView("byItem");
     setPersonFilter("all");
     setItemGenreFilter("all");
     setItemSearchQuery("");
-    setPersonGenreFilter("all");
     setResults([]);
     setSearchError(null);
   };
@@ -637,8 +749,8 @@ export default function DiscogsTradeList() {
     const hasVinyl = /vinyl/.test(f);
     const hasCD = /\bcds?\b/.test(f);
     if (hasVinyl && hasCD) return "#BA86B6";
-    if (hasVinyl) return "#4CAF50";
-    if (hasCD) return "#5B9BD5";
+    if (hasVinyl) return "#5B9BD5";
+    if (hasCD) return "#e04730";
     return "#9A9A9A";
   };
 
@@ -1036,14 +1148,11 @@ export default function DiscogsTradeList() {
     try {
       const { error } = await supabase.from(TABLE).update({ unwanted }).eq("id", id);
       if (error) throw error;
+      showToast(unwanted ? "Marked unavailable" : "Restored to the list", true);
     } catch (e) {
       setEntries(prev);
       showToast(unwanted ? "Couldn't remove that item — try again" : "Couldn't restore that item — try again");
     }
-  };
-
-  const toggleRemovedSection = (personName) => {
-    setExpandedRemoved((s) => ({ ...s, [personName]: !s[personName] }));
   };
 
   const setItemStatus = async (id, status) => {
@@ -1123,6 +1232,7 @@ export default function DiscogsTradeList() {
   const byItem = {};
   scopedEntries.forEach((e) => {
     if (e.unwanted) return;
+    if (personFilter !== "all" && e.name !== personFilter) return;
     if (!genreMatches(e.genre, itemGenreFilter)) return;
     if (!byItem[e.title]) byItem[e.title] = { title: e.title, thumb: e.thumb, image_full: e.image_full || null, url: e.url || null, genre: e.genre || null, format: e.format || null, people: [] };
     if (!byItem[e.title].url && e.url) byItem[e.title].url = e.url;
@@ -1151,21 +1261,33 @@ export default function DiscogsTradeList() {
     itemSearchMatches(group, itemSearchQuery)
   );
 
-  const byPerson = {};
+  // People offered in the By item person filter. Built from scopedEntries
+  // rather than the already-filtered groups, so picking a person doesn't
+  // collapse the dropdown down to just that person. Skips removed rows so the
+  // counts match what the list actually shows.
+  const personCounts = new Map();
   scopedEntries.forEach((e) => {
-    if (!byPerson[e.name]) byPerson[e.name] = { name: e.name, items: [] };
-    byPerson[e.name].items.push(e);
+    if (e.unwanted) return;
+    personCounts.set(e.name, (personCounts.get(e.name) || 0) + 1);
   });
-  const personGroups = Object.values(byPerson).sort((a, b) => b.items.length - a.items.length);
+  const personOptions = [...personCounts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+  // Rows someone marked unavailable. Held out of the main list but restorable
+  // from the collapsible section at the bottom of By item. Honours the same
+  // person/genre filters so the section tracks whatever you're looking at.
+  const unavailableEntries = scopedEntries
+    .filter((e) => e.unwanted)
+    .filter((e) => personFilter === "all" || e.name === personFilter)
+    .filter((e) => genreMatches(e.genre, itemGenreFilter))
+    .sort((a, b) => a.title.localeCompare(b.title));
 
   const discogsSelectedCount = discogsWantItems
     ? discogsWantItems.filter((it) => discogsSelected[it.id]).length
     : 0;
 
   const tabs = [
-    { key: "add", label: "Add items", icon: Plus },
     { key: "byItem", label: "By item", icon: ListMusic },
-    { key: "byPerson", label: "By person", icon: Users },
+    { key: "add", label: "Add items", icon: Plus },
   ];
 
   return (
@@ -1964,35 +2086,71 @@ export default function DiscogsTradeList() {
               </div>
             </div>
 
-            {allGenres.length > 0 && (
-              <div style={{ marginBottom: 18 }}>
-                <label style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
-                  FILTER BY GENRE
-                </label>
-                <select
-                  value={itemGenreFilter}
-                  onChange={(e) => setItemGenreFilter(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "9px 12px",
-                    borderRadius: 8,
-                    border: "1px solid #2A2A2A",
-                    background: "#121212",
-                    color: "#F5F0EC",
-                    fontSize: 14,
-                    boxSizing: "border-box",
-                    outline: "none",
-                    fontFamily: "'Barlow', sans-serif",
-                  }}
-                >
-                  <option value="all">All genres</option>
-                  {allGenres.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                  {hasUncategorized && <option value="uncategorized">Uncategorized</option>}
-                </select>
+            {(personOptions.length > 0 || allGenres.length > 0) && (
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
+                {personOptions.length > 0 && (
+                  <div style={{ flex: 1, minWidth: 140 }}>
+                    <label htmlFor="by-item-person" style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+                      FILTER BY PERSON
+                    </label>
+                    <select
+                      id="by-item-person"
+                      value={personFilter}
+                      onChange={(e) => setPersonFilter(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "9px 12px",
+                        borderRadius: 8,
+                        border: "1px solid #2A2A2A",
+                        background: "#121212",
+                        color: "#F5F0EC",
+                        fontSize: 14,
+                        boxSizing: "border-box",
+                        outline: "none",
+                        fontFamily: "'Barlow', sans-serif",
+                      }}
+                    >
+                      <option value="all">All ({personOptions.length})</option>
+                      {personOptions.map(([personName, count]) => (
+                        <option key={personName} value={personName}>
+                          {personName} ({count})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {allGenres.length > 0 && (
+                  <div style={{ flex: 1, minWidth: 140 }}>
+                    <label htmlFor="by-item-genre" style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+                      FILTER BY GENRE
+                    </label>
+                    <select
+                      id="by-item-genre"
+                      value={itemGenreFilter}
+                      onChange={(e) => setItemGenreFilter(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "9px 12px",
+                        borderRadius: 8,
+                        border: "1px solid #2A2A2A",
+                        background: "#121212",
+                        color: "#F5F0EC",
+                        fontSize: 14,
+                        boxSizing: "border-box",
+                        outline: "none",
+                        fontFamily: "'Barlow', sans-serif",
+                      }}
+                    >
+                      <option value="all">All genres</option>
+                      {allGenres.map((g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
+                      {hasUncategorized && <option value="uncategorized">Uncategorized</option>}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
             {loadingEntries ? (
@@ -2002,9 +2160,13 @@ export default function DiscogsTradeList() {
                 text={
                   itemSearchQuery.trim()
                     ? `Nothing matches “${itemSearchQuery.trim()}”.`
-                    : itemGenreFilter !== "all"
-                      ? "Nothing matches that genre."
-                      : activeType.emptyAdd
+                    : itemGenreFilter !== "all" && personFilter !== "all"
+                      ? `Nothing of ${personFilter}'s matches that genre.`
+                      : itemGenreFilter !== "all"
+                        ? "Nothing matches that genre."
+                        : personFilter !== "all"
+                          ? `${personFilter} has nothing on this list.`
+                          : activeType.emptyAdd
                 }
               />
             ) : (
@@ -2056,6 +2218,36 @@ export default function DiscogsTradeList() {
                         {g.format && <span style={{ color: formatColor(g.format) }}>{g.format}</span>}
                       </div>
                     )}
+                    {g.people.some((p) => p.notes) && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 5 }}>
+                        {g.people
+                          .filter((p) => p.notes)
+                          .map((p) => (
+                            <div
+                              key={p.id}
+                              style={{
+                                fontSize: 11.5,
+                                color: "#9A9A9A",
+                                fontStyle: "italic",
+                                lineHeight: 1.4,
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 5,
+                              }}
+                            >
+                              <StickyNote size={11} color="#6B6B6B" style={{ flexShrink: 0, marginTop: 3 }} />
+                              <span>
+                                {g.people.length > 1 && (
+                                  <span className="mono" style={{ fontStyle: "normal", color: "#6B6B6B" }}>
+                                    {p.name}:{" "}
+                                  </span>
+                                )}
+                                {p.notes}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    )}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
                       {g.people.map((p) => {
                         const statusInfo = listType === "trade" && p.status ? STATUS_CONFIG[p.status] : null;
@@ -2070,8 +2262,8 @@ export default function DiscogsTradeList() {
                               style={{ fontSize: 11, background: "#121212", color: "#F5F0EC", padding: "3px 8px", borderRadius: 20, border: "1px solid #2A2A2A", display: "inline-flex", alignItems: "center", gap: 4 }}
                             >
                               {p.name}
-                              {(p.notes || p.condition) && (
-                                <StickyNote size={11} color="#9A9A9A" title={[p.condition, p.notes].filter(Boolean).join(" — ")} />
+                              {p.condition && (
+                                <StickyNote size={11} color="#9A9A9A" title={`Condition: ${p.condition}`} />
                               )}
                             </span>
                             {listType === "trade" && (
@@ -2087,575 +2279,174 @@ export default function DiscogsTradeList() {
                               </button>
                             )}
                             {canModify && (
-                              <button type="button" onClick={() => deleteEntry(p.id)} title={`Delete ${p.name}'s item`} aria-label={`Delete ${p.name}'s item`} style={{ border: "none", background: "transparent", color: "#9D7047", padding: 2, cursor: "pointer" }}>
+                              <button
+                                type="button"
+                                onClick={() => setNoteEditModal({ id: p.id, title: g.title, value: p.notes || "" })}
+                                title={p.notes ? `Edit note — ${p.notes}` : "Add a note"}
+                                aria-label={`Edit ${p.name}'s note`}
+                                style={{ border: "none", background: "transparent", color: "#6B6B6B", padding: 2, cursor: "pointer" }}
+                              >
+                                <Pencil size={13} />
+                              </button>
+                            )}
+                            {canModify && (
+                              <button
+                                type="button"
+                                onClick={() => setRemoveModal({ id: p.id, title: g.title, name: p.name, unwanted: false })}
+                                title={`Remove ${p.name}'s item`}
+                                aria-label={`Remove ${p.name}'s item`}
+                                style={{ border: "none", background: "transparent", color: "#9D7047", padding: 2, cursor: "pointer" }}
+                              >
                                 <X size={14} strokeWidth={2.5} />
                               </button>
                             )}
-                            <TradeComments itemId={p.id} session={session} profile={profile} />
+                            {listType !== "trade" && (
+                              <TradeComments itemId={p.id} session={session} profile={profile} />
+                            )}
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                  <button
-                    onClick={() =>
-                      openListModal(
-                        { title: g.title, thumb: g.thumb, image_full: g.image_full || null, url: g.url, genre: g.genre || null, format: g.format || null },
-                        "other"
-                      )
-                    }
-                    title={`Add this to your own ${listType === "trade" ? "trade" : "want"} list`}
-                    style={{
-                      background: "none",
-                      border: "1px solid #9D7047",
-                      color: "#F5F0EC",
-                      cursor: "pointer",
-                      padding: "6px 10px",
-                      borderRadius: 7,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Plus size={13} />
-                    {activeType.addLabel}
-                  </button>
+                  {/* For Trade puts comments in the right-hand slot; In Search Of keeps
+                      the add-to-my-list button there and comments down in the chip row. */}
+                  {listType === "trade" ? (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+                      {g.people.map((p) => (
+                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          {g.people.length > 1 && (
+                            <span className="mono" style={{ fontSize: 9.5, color: "#6B6B6B" }}>
+                              {p.name}
+                            </span>
+                          )}
+                          <TradeComments itemId={p.id} session={session} profile={profile} popover />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        openListModal(
+                          { title: g.title, thumb: g.thumb, image_full: g.image_full || null, url: g.url, genre: g.genre || null, format: g.format || null },
+                          "other"
+                        )
+                      }
+                      title="Add this to your own want list"
+                      style={{
+                        background: "none",
+                        border: "1px solid #9D7047",
+                        color: "#F5F0EC",
+                        cursor: "pointer",
+                        padding: "6px 10px",
+                        borderRadius: 7,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Plus size={13} />
+                      {activeType.addLabel}
+                    </button>
+                  )}
                 </div>
               ))
+            )}
+
+            {unavailableEntries.length > 0 && (
+              <div style={{ marginTop: 18 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowUnavailable((v) => !v)}
+                  className="mono"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#6B6B6B",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: 0.5,
+                    cursor: "pointer",
+                    padding: "4px 0",
+                  }}
+                >
+                  {showUnavailable ? "▾" : "▸"} Unavailable ({unavailableEntries.length})
+                </button>
+                {showUnavailable &&
+                  unavailableEntries.map((e) => {
+                    const canModify = !!session && !!profile && (profile.is_admin || e.author_id === session.user.id);
+                    return (
+                      <div
+                        key={e.id}
+                        className="entry-row"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          gap: 8,
+                          padding: "8px 4px",
+                          borderBottom: "1px solid #2A2A2A",
+                          opacity: 0.55,
+                        }}
+                      >
+                        <RecordThumb
+                          src={e.thumb}
+                          alt={e.title}
+                          size={34}
+                          onClick={() => setImagePreview({ src: e.image_full || e.thumb, alt: e.title })}
+                        />
+                        <div style={{ flex: 1, minWidth: 160 }}>
+                          <div style={{ fontSize: 13.5, color: "#9A9A9A", textDecoration: "line-through" }}>
+                            {e.title}
+                          </div>
+                          <span className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>
+                            {e.name}
+                          </span>
+                        </div>
+                        {canModify && (
+                          <button
+                            type="button"
+                            onClick={() => setUnwanted(e.id, false)}
+                            title="Restore to the list"
+                            style={{
+                              background: "none",
+                              border: "1px solid #2A2A2A",
+                              color: "#9A9A9A",
+                              cursor: "pointer",
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                              fontSize: 11,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                              flexShrink: 0,
+                            }}
+                          >
+                            <RotateCcw size={12} />
+                            Restore
+                          </button>
+                        )}
+                        {canModify && (
+                          <button
+                            type="button"
+                            onClick={() => setRemoveModal({ id: e.id, title: e.title, name: e.name, unwanted: true })}
+                            title="Remove permanently"
+                            aria-label={`Permanently remove ${e.name}'s item`}
+                            style={{ border: "none", background: "transparent", color: "#9D7047", padding: 2, cursor: "pointer", flexShrink: 0 }}
+                          >
+                            <X size={14} strokeWidth={2.5} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
             )}
           </div>
         )}
 
-        {/* BY PERSON VIEW */}
-        {view === "byPerson" && (
-          <div>
-            {(personGroups.length > 0 || allGenres.length > 0) && (
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
-                {personGroups.length > 0 && (
-                  <div style={{ flex: 1, minWidth: 140 }}>
-                    <label style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
-                      FILTER BY PERSON
-                    </label>
-                    <select
-                      value={personFilter}
-                      onChange={(e) => setPersonFilter(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "9px 12px",
-                        borderRadius: 8,
-                        border: "1px solid #2A2A2A",
-                        background: "#121212",
-                        color: "#F5F0EC",
-                        fontSize: 14,
-                        boxSizing: "border-box",
-                        outline: "none",
-                        fontFamily: "'Barlow', sans-serif",
-                      }}
-                    >
-                      <option value="all">All ({personGroups.length})</option>
-                      {[...personGroups]
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map((p) => (
-                          <option key={p.name} value={p.name}>
-                            {p.name} ({p.items.length})
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                )}
-                {allGenres.length > 0 && (
-                  <div style={{ flex: 1, minWidth: 140 }}>
-                    <label style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
-                      FILTER BY GENRE
-                    </label>
-                    <select
-                      value={personGenreFilter}
-                      onChange={(e) => setPersonGenreFilter(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "9px 12px",
-                        borderRadius: 8,
-                        border: "1px solid #2A2A2A",
-                        background: "#121212",
-                        color: "#F5F0EC",
-                        fontSize: 14,
-                        boxSizing: "border-box",
-                        outline: "none",
-                        fontFamily: "'Barlow', sans-serif",
-                      }}
-                    >
-                      <option value="all">All genres</option>
-                      {allGenres.map((g) => (
-                        <option key={g} value={g}>
-                          {g}
-                        </option>
-                      ))}
-                      {hasUncategorized && <option value="uncategorized">Uncategorized</option>}
-                    </select>
-                  </div>
-                )}
-              </div>
-            )}
-            {(() => {
-              const visiblePeople = personGroups.filter((p) => personFilter === "all" || p.name === personFilter);
-              const anyVisible = visiblePeople.some((p) =>
-                p.items.some((item) => genreMatches(item.genre, personGenreFilter))
-              );
-              if (loadingEntries) return <EmptyState text="Loading the crate…" />;
-              if (personGroups.length === 0) return <EmptyState text={activeType.emptyAdd} />;
-              if (!anyVisible) return <EmptyState text="Nothing matches that filter." />;
-              return null;
-            })()}
-            {!loadingEntries && personGroups.length > 0 && (
-              personGroups
-                .filter((p) => personFilter === "all" || p.name === personFilter)
-                .map((p) => {
-                  const isOwnSection = name.trim() && p.name.trim().toLowerCase() === name.trim().toLowerCase();
-                  const filteredItems = p.items.filter((item) => genreMatches(item.genre, personGenreFilter));
-                  if (filteredItems.length === 0) return null;
-                  const activeItems = filteredItems.filter((item) => !item.unwanted && !item.status);
-                  const statusBuckets = {
-                    claimed: filteredItems.filter((item) => !item.unwanted && item.status === "claimed"),
-                    pending: filteredItems.filter((item) => !item.unwanted && item.status === "pending"),
-                    traded: filteredItems.filter((item) => !item.unwanted && item.status === "traded"),
-                  };
-                  const removedItems = filteredItems.filter((item) => item.unwanted);
-                  return (
-                <div key={p.name} style={{ marginBottom: 22 }}>
-                  <button
-                    type="button"
-                    onClick={() => setCollapsedPeople((prev) => ({ ...prev, [p.name]: !prev[p.name] }))}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      marginBottom: 8,
-                      background: "none",
-                      border: "none",
-                      padding: 0,
-                      cursor: "pointer",
-                      width: "100%",
-                      textAlign: "left",
-                    }}
-                  >
-                    <span className="mono" style={{ fontSize: 11, color: "#6B6B6B", width: 12, flexShrink: 0 }}>
-                      {collapsedPeople[p.name] ? "▸" : "▾"}
-                    </span>
-                    <User size={14} color="#9D7047" />
-                    <span style={{ fontSize: 14.5, fontWeight: 600, color: "#F5F0EC" }}>{p.name}</span>
-                    <span className="mono" style={{ fontSize: 11, color: "#9A9A9A" }}>
-                      {(() => {
-                        const total = activeItems.length + statusBuckets.claimed.length + statusBuckets.pending.length + statusBuckets.traded.length;
-                        return `${total} item${total !== 1 ? "s" : ""}`;
-                      })()}
-                    </span>
-                  </button>
-                  {!collapsedPeople[p.name] && (
-                    <>
-                  {activeItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="entry-row"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                        gap: 8,
-                        padding: "8px 4px 8px 22px",
-                      }}
-                    >
-                      <RecordThumb
-                        src={item.thumb}
-                        alt={item.title}
-                        size={34}
-                        onClick={() => setImagePreview({ src: item.image_full || item.thumb, alt: item.title })}
-                      />
-                      <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column" }}>
-                        {item.url ? (
-                          <a
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              fontSize: 13.5,
-                              color: "#D8D3CC",
-                              textDecoration: "none",
-                              borderBottom: "1px solid #9D7047",
-                              width: "fit-content",
-                            }}
-                          >
-                            {item.title}
-                          </a>
-                        ) : (
-                          <span style={{ fontSize: 13.5, color: "#D8D3CC" }}>{item.title}</span>
-                        )}
-                        {item.condition && (
-                          <span
-                            className="mono"
-                            style={{ fontSize: 11, color: "#C99A3A", marginTop: 2 }}
-                          >
-                            Condition: {item.condition}
-                          </span>
-                        )}
-                        {item.notes && (
-                          <span
-                            style={{
-                              fontSize: 11.5,
-                              color: "#9A9A9A",
-                              fontStyle: "italic",
-                              marginTop: 2,
-                              display: "flex",
-                              alignItems: "flex-start",
-                              gap: 4,
-                            }}
-                          >
-                            <StickyNote size={11} style={{ flexShrink: 0, marginTop: 2 }} />
-                            {item.notes}
-                          </span>
-                        )}
-                        {(() => {
-                          const displayFormat = getDisplayFormat(item);
-                          if (!item.genre && !displayFormat) return null;
-                          return (
-                            <span
-                              className="mono"
-                              style={{
-                                fontSize: 10.5,
-                                marginTop: 3,
-                                letterSpacing: 0.5,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 5,
-                              }}
-                            >
-                              {item.genre && <span style={{ color: "#9D7047" }}>{item.genre}</span>}
-                              {item.genre && displayFormat && <span style={{ color: "#4A4A4A" }}>|</span>}
-                              {displayFormat && <span style={{ color: displayFormat.color }}>{displayFormat.label}</span>}
-                            </span>
-                          );
-                        })()}
-                      </div>
-                      <button
-                        disabled={!profile?.is_admin && item.author_id !== session?.user?.id}
-                        onClick={() =>
-                          setNoteEditModal({ id: item.id, title: item.title, value: item.notes || "" })
-                        }
-                        title={profile?.is_admin || item.author_id === session?.user?.id ? "Edit note" : "Only the owner can edit this note"}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#6B6B6B",
-                          cursor: "pointer",
-                          padding: 4,
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      {!isOwnSection && (
-                        <button
-                          onClick={() => openListModal(item, "other")}
-                          title={`Add this to your own ${listType === "trade" ? "trade" : "want"} list`}
-                          style={{
-                            background: "none",
-                            border: "1px solid #9D7047",
-                            color: "#F5F0EC",
-                            cursor: "pointer",
-                            padding: "4px 8px",
-                            borderRadius: 6,
-                            fontSize: 11,
-                            fontWeight: 600,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Plus size={12} />
-                          {activeType.addLabel}
-                        </button>
-                      )}
-                      {listType === "trade" && (
-                        <button
-                          onClick={() => {
-                             if (!profile?.is_admin && item.author_id !== session?.user?.id) {
-                               showToast("You can only change your own items");
-                               return;
-                             }
-                             setStatusModal({ id: item.id, title: item.title, current: item.status || null });
-                           }}
-                          title="Mark status — Claimed, Pending, or Traded"
-                          style={{
-                            background: "none",
-                            border: "1px solid #2A2A2A",
-                            color: "#9A9A9A",
-                            cursor: "pointer",
-                            padding: "4px 8px",
-                            borderRadius: 6,
-                            fontSize: 11,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                            flexShrink: 0,
-                          }}
-                        >
-                          <CheckCircle2 size={12} />
-                          Mark status
-                        </button>
-                      )}
-                      {(profile?.is_admin || item.author_id === session?.user?.id) && (
-                        <button
-                          onClick={() => deleteEntry(item.id)}
-                          title="Delete item"
-                          aria-label="Delete item"
-                          style={{ background: "none", border: "none", color: "#9D7047", cursor: "pointer", padding: 4, flexShrink: 0 }}
-                        >
-                          <X size={14} strokeWidth={2.5} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {["claimed", "pending", "traded"].map((statusKey) => {
-                    const bucket = statusBuckets[statusKey];
-                    if (bucket.length === 0) return null;
-                    const { label, icon: StatusIcon, color } = STATUS_CONFIG[statusKey];
-                    const bucketKey = `${p.name}:${statusKey}`;
-                    const collapsed = collapsedStatusBuckets[bucketKey];
-                    return (
-                      <div key={statusKey} style={{ marginTop: 4, paddingLeft: 22 }}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCollapsedStatusBuckets((s) => ({ ...s, [bucketKey]: !s[bucketKey] }))
-                          }
-                          className="mono"
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color,
-                            fontSize: 11,
-                            fontWeight: 600,
-                            letterSpacing: 0.5,
-                            cursor: "pointer",
-                            padding: "4px 0",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 5,
-                          }}
-                        >
-                          {collapsed ? "▸" : "▾"}
-                          <StatusIcon size={11} />
-                          {label} ({bucket.length})
-                        </button>
-                        {!collapsed &&
-                          bucket.map((item) => (
-                            <div
-                              key={item.id}
-                              className="entry-row"
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                flexWrap: "wrap",
-                                gap: 8,
-                                padding: "6px 4px 6px 22px",
-                              }}
-                            >
-                              <RecordThumb
-                                src={item.thumb}
-                                alt={item.title}
-                                size={30}
-                                onClick={() => setImagePreview({ src: item.image_full || item.thumb, alt: item.title })}
-                              />
-                              <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column" }}>
-                                {item.url ? (
-                                  <a
-                                    href={item.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                      fontSize: 13,
-                                      color: "#D8D3CC",
-                                      textDecoration: "none",
-                                      borderBottom: `1px solid ${color}`,
-                                      width: "fit-content",
-                                    }}
-                                  >
-                                    {item.title}
-                                  </a>
-                                ) : (
-                                  <span style={{ fontSize: 13, color: "#D8D3CC" }}>{item.title}</span>
-                                )}
-                                {item.condition && (
-                                  <span className="mono" style={{ fontSize: 10.5, color: "#C99A3A", marginTop: 2 }}>
-                                    Condition: {item.condition}
-                                  </span>
-                                )}
-                                {item.notes && (
-                                  <span style={{ fontSize: 11, color: "#6B6B6B", fontStyle: "italic", marginTop: 2 }}>
-                                    {item.notes}
-                                  </span>
-                                )}
-                              </div>
-                              <button
-                                disabled={!profile?.is_admin && item.author_id !== session?.user?.id}
-                                onClick={() =>
-                                  setNoteEditModal({ id: item.id, title: item.title, value: item.notes || "" })
-                                }
-                                title={profile?.is_admin || item.author_id === session?.user?.id ? "Edit note" : "Only the owner can edit this note"}
-                                style={{
-                                  background: "none",
-                                  border: "none",
-                                  color: "#6B6B6B",
-                                  cursor: "pointer",
-                                  padding: 4,
-                                  flexShrink: 0,
-                                }}
-                              >
-                                <Pencil size={13} />
-                              </button>
-                              {!isOwnSection && (
-                                <button
-                                  onClick={() => openListModal(item, "other")}
-                                  title={`Add this to your own ${listType === "trade" ? "trade" : "want"} list`}
-                                  style={{
-                                    background: "none",
-                                    border: "1px solid #9D7047",
-                                    color: "#F5F0EC",
-                                    cursor: "pointer",
-                                    padding: "4px 8px",
-                                    borderRadius: 6,
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  <Plus size={12} />
-                                  {activeType.addLabel}
-                                </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  if (!profile?.is_admin && item.author_id !== session?.user?.id) {
-                                    showToast("You can only change your own items");
-                                    return;
-                                  }
-                                  setStatusModal({ id: item.id, title: item.title, current: item.status || null });
-                                }}
-                                title="Change status"
-                                style={{
-                                  background: "none",
-                                  border: `1px solid ${color}55`,
-                                  color,
-                                  cursor: "pointer",
-                                  padding: "4px 8px",
-                                  borderRadius: 6,
-                                  fontSize: 11,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  flexShrink: 0,
-                                }}
-                              >
-                                Change
-                              </button>
-                              {(profile?.is_admin || item.author_id === session?.user?.id) && (
-                                <button
-                                  type="button"
-                                  onClick={() => deleteEntry(item.id)}
-                                  title="Delete item"
-                                  aria-label="Delete item"
-                                  style={{ border: "none", background: "transparent", color: "#9D7047", padding: 4, cursor: "pointer", flexShrink: 0 }}
-                                >
-                                  <X size={14} strokeWidth={2.5} />
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                      </div>
-                    );
-                  })}
-                  {removedItems.length > 0 && (
-                    <div style={{ marginTop: 4, paddingLeft: 22 }}>
-                      <button
-                        type="button"
-                        onClick={() => toggleRemovedSection(p.name)}
-                        className="mono"
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#6B6B6B",
-                          fontSize: 11,
-                          fontWeight: 600,
-                          letterSpacing: 0.5,
-                          cursor: "pointer",
-                          padding: "4px 0",
-                        }}
-                      >
-                        {expandedRemoved[p.name] ? "▾" : "▸"} Removed ({removedItems.length})
-                      </button>
-                      {expandedRemoved[p.name] &&
-                        removedItems.map((item) => (
-                          <div
-                            key={item.id}
-                            className="entry-row"
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              flexWrap: "wrap",
-                              gap: 8,
-                              padding: "6px 4px 6px 22px",
-                              opacity: 0.5,
-                            }}
-                          >
-                            <RecordThumb
-                              src={item.thumb}
-                              alt={item.title}
-                              size={28}
-                              onClick={() => setImagePreview({ src: item.image_full || item.thumb, alt: item.title })}
-                            />
-                            <div style={{ flex: 1, minWidth: 160 }}>
-                              <span style={{ fontSize: 13, color: "#9A9A9A", textDecoration: "line-through" }}>
-                                {item.title}
-                              </span>
-                            </div>
-                            <button
-                              onClick={() => setUnwanted(item.id, false)}
-                              title="Restore to list"
-                              style={{
-                                background: "none",
-                                border: "1px solid #2A2A2A",
-                                color: "#9A9A9A",
-                                cursor: "pointer",
-                                padding: "4px 8px",
-                                borderRadius: 6,
-                                fontSize: 11,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                                flexShrink: 0,
-                              }}
-                            >
-                              <RotateCcw size={12} />
-                              Restore
-                            </button>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                    </>
-                  )}
-                </div>
-                  );
-                })
-            )}
-          </div>
-        )}
       </div>
 
       {listModal && (
@@ -2729,8 +2520,8 @@ export default function DiscogsTradeList() {
                 </p>
                 <div style={{ display: "flex", gap: 6 }}>
                   {[
-                    { key: "vinyl", label: "Vinyl only", color: "#4CAF50" },
-                    { key: "cd", label: "CD only", color: "#5B9BD5" },
+                    { key: "vinyl", label: "Vinyl only", color: "#5B9BD5" },
+                    { key: "cd", label: "CD only", color: "#e04730" },
                     { key: "both", label: "Both", color: "#BA86B6" },
                   ].map((opt) => {
                     const selected = modalFormatChoice === opt.key;
@@ -2831,6 +2622,129 @@ export default function DiscogsTradeList() {
               }}
             >
               Add
+            </button>
+          </div>
+        </div>
+      )}
+
+      {removeModal && (
+        <div
+          onClick={() => setRemoveModal(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 360,
+              background: "#121212",
+              border: "1px solid #2A2A2A",
+              borderRadius: 12,
+              padding: 20,
+              boxSizing: "border-box",
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC", marginBottom: 4 }}>
+              {removeModal.title}
+            </div>
+            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 16 }}>
+              {removeModal.unwanted
+                ? "Already unavailable — remove it for good?"
+                : `Remove ${removeModal.name}'s copy`}
+            </p>
+
+            {!removeModal.unwanted && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await setUnwanted(removeModal.id, true);
+                  setRemoveModal(null);
+                }}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
+                  padding: "10px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #C99A3A",
+                  background: "#C99A3A18",
+                  color: "#F5F0EC",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  marginBottom: 8,
+                  textAlign: "left",
+                }}
+              >
+                <PauseCircle size={16} color="#C99A3A" style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>
+                  Mark unavailable
+                  <span className="mono" style={{ display: "block", fontSize: 10.5, color: "#9A9A9A", marginTop: 3 }}>
+                    Hides it from the list. You can restore it later.
+                  </span>
+                </span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={async () => {
+                await deleteEntry(removeModal.id);
+                setRemoveModal(null);
+              }}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #9D7047",
+                background: "#9D704718",
+                color: "#F5F0EC",
+                fontSize: 14,
+                fontWeight: 500,
+                cursor: "pointer",
+                marginBottom: 8,
+                textAlign: "left",
+              }}
+            >
+              <AlertCircle size={16} color="#9D7047" style={{ flexShrink: 0, marginTop: 2 }} />
+              <span>
+                Remove permanently
+                <span className="mono" style={{ display: "block", fontSize: 10.5, color: "#9A9A9A", marginTop: 3 }}>
+                  Deletes the row outright. This can't be undone.
+                </span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setRemoveModal(null)}
+              className="mono"
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "none",
+                background: "transparent",
+                color: "#6B6B6B",
+                fontSize: 11.5,
+                cursor: "pointer",
+                marginTop: 4,
+              }}
+            >
+              Cancel
             </button>
           </div>
         </div>
