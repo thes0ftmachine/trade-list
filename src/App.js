@@ -156,6 +156,12 @@ function TradeComments({ itemId, session, profile, popover = false }) {
   const [replyTo, setReplyTo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // id of the comment currently open in the inline editor, and its draft text
+  const [editingId, setEditingId] = useState(null);
+  const [editBody, setEditBody] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  // id of the comment showing the inline "delete this?" confirmation
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const loadComments = useCallback(async () => {
     setLoading(true);
@@ -178,7 +184,14 @@ function TradeComments({ itemId, session, profile, popover = false }) {
     loadComments();
     setReplyTo(null);
     setBody("");
+    setEditingId(null);
+    setEditBody("");
+    setPendingDelete(null);
   }, [loadComments]);
+
+  // Same rule the item rows use: your own comments, or anything if you're admin.
+  const canManage = (comment) =>
+    !!session && !!profile && (profile.is_admin || comment.author_id === session.user.id);
 
   const submitComment = async () => {
     const trimmed = body.trim();
@@ -205,16 +218,82 @@ function TradeComments({ itemId, session, profile, popover = false }) {
     }
   };
 
-  const deleteComment = async (id) => {
-    if (!profile?.is_admin) return;
+  const beginEdit = (comment) => {
+    setEditingId(comment.id);
+    setEditBody(comment.body || "");
+    setPendingDelete(null);
+    setReplyTo(null);
+    setBody("");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditBody("");
+  };
+
+  const saveEdit = async () => {
+    const trimmed = editBody.trim();
+    const target = comments.find((c) => c.id === editingId);
+    if (!target || !trimmed) return;
+    if (trimmed === target.body) {
+      cancelEdit();
+      return;
+    }
+    setSavingEdit(true);
     const previous = comments;
-    setComments((current) => current.filter((c) => c.id !== id && c.reply_to !== id));
-    const { error } = await supabase.from("trade_comments").delete().eq("id", id);
+    setComments((current) => current.map((c) => (c.id === target.id ? { ...c, body: trimmed } : c)));
+    const { error } = await supabase.from("trade_comments").update({ body: trimmed }).eq("id", target.id);
+    setSavingEdit(false);
+    if (error) {
+      // Put the stored text back but leave the editor open so the edit isn't lost.
+      setComments(previous);
+      return;
+    }
+    cancelEdit();
+  };
+
+  // Replies live or die with their parent — an orphaned reply still counts
+  // towards the comment total but never renders, so take the whole subtree.
+  const threadIds = (id, source) => {
+    const ids = [id];
+    source.forEach((c) => {
+      if (c.reply_to === id) ids.push(...threadIds(c.id, source));
+    });
+    return ids;
+  };
+
+  const deleteComment = async (comment) => {
+    if (!canManage(comment)) return;
+    const previous = comments;
+    const ids = threadIds(comment.id, comments);
+    setComments((current) => current.filter((c) => !ids.includes(c.id)));
+    setPendingDelete(null);
+    if (replyTo && ids.includes(replyTo.id)) setReplyTo(null);
+    if (editingId && ids.includes(editingId)) cancelEdit();
+    const { error } = await supabase.from("trade_comments").delete().in("id", ids);
     if (error) setComments(previous);
   };
 
-  const topLevelComments = comments.filter((comment) => !comment.reply_to);
-  const repliesByParent = comments.reduce((groups, comment) => {
+  // A reply whose parent is gone has nowhere to render, so it shouldn't count
+  // towards the total either. Row-level security only lets you delete your own
+  // comments, so deleting a thread someone else replied to leaves their reply
+  // behind — as did the older delete, which never removed replies at all.
+  const commentsById = new Map(comments.map((c) => [c.id, c]));
+  const hasLivingParent = (comment) => {
+    const seen = new Set();
+    let current = comment;
+    while (current.reply_to) {
+      if (seen.has(current.id)) return false; // a cycle can't reach the top
+      seen.add(current.id);
+      current = commentsById.get(current.reply_to);
+      if (!current) return false;
+    }
+    return true;
+  };
+  const visibleComments = comments.filter(hasLivingParent);
+
+  const topLevelComments = visibleComments.filter((comment) => !comment.reply_to);
+  const repliesByParent = visibleComments.reduce((groups, comment) => {
     if (comment.reply_to) {
       if (!groups[comment.reply_to]) groups[comment.reply_to] = [];
       groups[comment.reply_to].push(comment);
@@ -225,10 +304,25 @@ function TradeComments({ itemId, session, profile, popover = false }) {
   const beginReply = (comment) => {
     setReplyTo(comment);
     setBody("");
+    cancelEdit();
+    setPendingDelete(null);
   };
 
   const renderComment = (comment, isReply = false) => {
     const replies = repliesByParent[comment.id] || [];
+    const editable = canManage(comment);
+    const editing = editingId === comment.id;
+    const confirming = pendingDelete === comment.id;
+    // Everything delete would take with it, replies of replies included.
+    const doomedReplies = confirming ? threadIds(comment.id, comments).length - 1 : 0;
+    const linkButtonStyle = {
+      border: "none",
+      background: "transparent",
+      color: "#77736E",
+      padding: "4px 0 0",
+      fontSize: 9.5,
+      cursor: "pointer",
+    };
 
     return (
       <div key={comment.id} style={{ marginLeft: isReply ? 24 : 0 }}>
@@ -240,34 +334,104 @@ function TradeComments({ itemId, session, profile, popover = false }) {
                 {comment.created_at ? new Date(comment.created_at).toLocaleString() : ""}
               </span>
             </div>
-            <div style={{ fontSize: 12.5, color: "#BDB8B2", lineHeight: 1.45, marginTop: 2, whiteSpace: "pre-wrap" }}>
-              {comment.body}
-            </div>
-            {session && profile && (
-              <button
-                type="button"
-                onClick={() => beginReply(comment)}
+            {editing ? (
+              <div style={{ marginTop: 4 }}>
+                <textarea
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                  rows={2}
+                  aria-label="Edit comment"
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    resize: "vertical",
+                    padding: "8px 10px",
+                    borderRadius: 7,
+                    border: "1px solid #2A2A2A",
+                    background: "#000000",
+                    color: "#F5F0EC",
+                    fontSize: 12.5,
+                    outline: "none",
+                    fontFamily: "'Barlow', sans-serif",
+                  }}
+                />
+                <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 5 }}>
+                  <button
+                    type="button"
+                    onClick={saveEdit}
+                    disabled={!editBody.trim() || savingEdit}
+                    style={{
+                      border: "none",
+                      borderRadius: 7,
+                      padding: "5px 10px",
+                      background: editBody.trim() && !savingEdit ? "#9D7047" : "#3A3A3A",
+                      color: editBody.trim() && !savingEdit ? "#F5F0EC" : "#6B6B6B",
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      cursor: editBody.trim() && !savingEdit ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    {savingEdit ? <RefreshCw size={12} className="spin" /> : "Save"}
+                  </button>
+                  <button type="button" onClick={cancelEdit} className="mono" style={{ ...linkButtonStyle, padding: 0 }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12.5, color: "#BDB8B2", lineHeight: 1.45, marginTop: 2, whiteSpace: "pre-wrap" }}>
+                {comment.body}
+              </div>
+            )}
+            {!editing && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {session && profile && (
+                  <button type="button" onClick={() => beginReply(comment)} className="mono" style={linkButtonStyle}>
+                    Reply
+                  </button>
+                )}
+                {editable && (
+                  <button type="button" onClick={() => beginEdit(comment)} className="mono" style={linkButtonStyle}>
+                    Edit
+                  </button>
+                )}
+              </div>
+            )}
+            {confirming && (
+              <div
                 className="mono"
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  color: "#77736E",
-                  padding: "4px 0 0",
-                  fontSize: 9.5,
-                  cursor: "pointer",
-                }}
+                style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 5, fontSize: 9.5, color: "#8A8580" }}
               >
-                Reply
-              </button>
+                <span>
+                  Delete this {isReply ? "reply" : "comment"}
+                  {doomedReplies > 0 ? ` and ${doomedReplies} repl${doomedReplies === 1 ? "y" : "ies"}` : ""}?
+                </span>
+                <button
+                  type="button"
+                  onClick={() => deleteComment(comment)}
+                  className="mono"
+                  style={{ border: "none", background: "transparent", color: "#9D7047", padding: 0, fontSize: 9.5, fontWeight: 700, cursor: "pointer" }}
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingDelete(null)}
+                  className="mono"
+                  style={{ border: "none", background: "transparent", color: "#77736E", padding: 0, fontSize: 9.5, cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+              </div>
             )}
           </div>
-          {profile?.is_admin && (
+          {editable && !editing && (
             <button
               type="button"
-              onClick={() => deleteComment(comment.id)}
+              onClick={() => setPendingDelete(confirming ? null : comment.id)}
               title="Delete comment"
               aria-label="Delete comment"
-              style={{ border: "none", background: "transparent", color: "#6B6B6B", padding: 2, cursor: "pointer" }}
+              style={{ border: "none", background: "transparent", color: confirming ? "#9D7047" : "#6B6B6B", padding: 2, cursor: "pointer" }}
             >
               <X size={13} strokeWidth={2.5} />
             </button>
@@ -312,7 +476,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
         }}
       >
         <MessageCircle size={12} />
-        {comments.length} comment{comments.length !== 1 ? "s" : ""}
+        {visibleComments.length} comment{visibleComments.length !== 1 ? "s" : ""}
       </button>
 
       {expanded && (
@@ -338,7 +502,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
         >
           {loading ? (
             <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>Loading comments…</div>
-          ) : comments.length === 0 ? (
+          ) : visibleComments.length === 0 ? (
             <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B", marginBottom: session ? 9 : 0 }}>
               No comments yet.
             </div>
@@ -466,6 +630,7 @@ export default function DiscogsTradeList() {
   const [view, setView] = useState("byItem"); // byItem | add
   const [personFilter, setPersonFilter] = useState("all");
   const [itemGenreFilter, setItemGenreFilter] = useState("all");
+  const [itemFormatFilter, setItemFormatFilter] = useState("all");
   const [itemSearchQuery, setItemSearchQuery] = useState("");
   const [toast, setToast] = useState(null);
   const [toastSuccess, setToastSuccess] = useState(false);
@@ -669,6 +834,7 @@ export default function DiscogsTradeList() {
     setView("byItem");
     setPersonFilter("all");
     setItemGenreFilter("all");
+    setItemFormatFilter("all");
     setItemSearchQuery("");
     setResults([]);
     setSearchError(null);
@@ -1215,6 +1381,15 @@ export default function DiscogsTradeList() {
     return itemGenre.toLowerCase().includes(filter.toLowerCase());
   };
 
+  // Formats are free text ("Vinyl", "Vinyl or CD", "LP, Album"), so matching is
+  // loose the same way genres are — picking CD keeps "Vinyl or CD" in the list.
+  const formatMatches = (itemFormat, filter) => {
+    if (filter === "all") return true;
+    if (filter === "unspecified") return !itemFormat;
+    if (!itemFormat) return false;
+    return itemFormat.toLowerCase().includes(filter.toLowerCase());
+  };
+
   // everything below is scoped to the active tab (For Trade vs In Search
   // Of) first — separate datasets sharing one table and one set of views.
   const scopedEntries = entries.filter((e) => e.type === listType);
@@ -1229,11 +1404,25 @@ export default function DiscogsTradeList() {
   ).sort((a, b) => a.localeCompare(b));
   const hasUncategorized = scopedEntries.some((e) => !e.unwanted && !e.genre);
 
+  // Format options are the canonical formats actually present on this list —
+  // a row of "Vinyl or CD" offers both — plus any free-text format matching
+  // none of the keywords, so no row is unreachable through the filter.
+  const formatSet = new Set();
+  scopedEntries.forEach((e) => {
+    if (!e.format) return;
+    const matched = FORMAT_KEYWORDS.filter((k) => e.format.toLowerCase().includes(k.toLowerCase()));
+    if (matched.length) matched.forEach((k) => formatSet.add(k));
+    else formatSet.add(e.format.trim());
+  });
+  const allFormats = [...formatSet].filter(Boolean).sort((a, b) => a.localeCompare(b));
+  const hasUnspecifiedFormat = scopedEntries.some((e) => !e.unwanted && !e.format);
+
   const byItem = {};
   scopedEntries.forEach((e) => {
     if (e.unwanted) return;
     if (personFilter !== "all" && e.name !== personFilter) return;
     if (!genreMatches(e.genre, itemGenreFilter)) return;
+    if (!formatMatches(e.format, itemFormatFilter)) return;
     if (!byItem[e.title]) byItem[e.title] = { title: e.title, thumb: e.thumb, image_full: e.image_full || null, url: e.url || null, genre: e.genre || null, format: e.format || null, people: [] };
     if (!byItem[e.title].url && e.url) byItem[e.title].url = e.url;
     if (!byItem[e.title].genre && e.genre) byItem[e.title].genre = e.genre;
@@ -1261,6 +1450,14 @@ export default function DiscogsTradeList() {
     itemSearchMatches(group, itemSearchQuery)
   );
 
+  // Names the genre/format filters currently narrowing the list, for the
+  // "nothing here" message. Person is handled separately — it reads better as
+  // "Dave has nothing on this list" than as one more filter in a list.
+  const activeItemFilterLabels = [
+    itemGenreFilter === "all" ? null : itemGenreFilter === "uncategorized" ? "uncategorized items" : itemGenreFilter,
+    itemFormatFilter === "all" ? null : itemFormatFilter === "unspecified" ? "items with no format" : itemFormatFilter,
+  ].filter(Boolean);
+
   // People offered in the By item person filter. Built from scopedEntries
   // rather than the already-filtered groups, so picking a person doesn't
   // collapse the dropdown down to just that person. Skips removed rows so the
@@ -1279,6 +1476,7 @@ export default function DiscogsTradeList() {
     .filter((e) => e.unwanted)
     .filter((e) => personFilter === "all" || e.name === personFilter)
     .filter((e) => genreMatches(e.genre, itemGenreFilter))
+    .filter((e) => formatMatches(e.format, itemFormatFilter))
     .sort((a, b) => a.title.localeCompare(b.title));
 
   const discogsSelectedCount = discogsWantItems
@@ -2086,7 +2284,7 @@ export default function DiscogsTradeList() {
               </div>
             </div>
 
-            {(personOptions.length > 0 || allGenres.length > 0) && (
+            {(personOptions.length > 0 || allGenres.length > 0 || allFormats.length > 0) && (
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
                 {personOptions.length > 0 && (
                   <div style={{ flex: 1, minWidth: 140 }}>
@@ -2151,6 +2349,38 @@ export default function DiscogsTradeList() {
                     </select>
                   </div>
                 )}
+                {allFormats.length > 0 && (
+                  <div style={{ flex: 1, minWidth: 140 }}>
+                    <label htmlFor="by-item-format" style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+                      FILTER BY FORMAT
+                    </label>
+                    <select
+                      id="by-item-format"
+                      value={itemFormatFilter}
+                      onChange={(e) => setItemFormatFilter(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "9px 12px",
+                        borderRadius: 8,
+                        border: "1px solid #2A2A2A",
+                        background: "#121212",
+                        color: "#F5F0EC",
+                        fontSize: 14,
+                        boxSizing: "border-box",
+                        outline: "none",
+                        fontFamily: "'Barlow', sans-serif",
+                      }}
+                    >
+                      <option value="all">All formats</option>
+                      {allFormats.map((f) => (
+                        <option key={f} value={f}>
+                          {f}
+                        </option>
+                      ))}
+                      {hasUnspecifiedFormat && <option value="unspecified">No format listed</option>}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
             {loadingEntries ? (
@@ -2160,10 +2390,10 @@ export default function DiscogsTradeList() {
                 text={
                   itemSearchQuery.trim()
                     ? `Nothing matches “${itemSearchQuery.trim()}”.`
-                    : itemGenreFilter !== "all" && personFilter !== "all"
-                      ? `Nothing of ${personFilter}'s matches that genre.`
-                      : itemGenreFilter !== "all"
-                        ? "Nothing matches that genre."
+                    : activeItemFilterLabels.length && personFilter !== "all"
+                      ? `Nothing of ${personFilter}'s matches ${activeItemFilterLabels.join(" + ")}.`
+                      : activeItemFilterLabels.length
+                        ? `Nothing matches ${activeItemFilterLabels.join(" + ")}.`
                         : personFilter !== "all"
                           ? `${personFilter} has nothing on this list.`
                           : activeType.emptyAdd
