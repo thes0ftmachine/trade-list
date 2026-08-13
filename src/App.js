@@ -162,6 +162,75 @@ function TradeComments({ itemId, session, profile, popover = false }) {
   const [savingEdit, setSavingEdit] = useState(false);
   // id of the comment showing the inline "delete this?" confirmation
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [notificationSaving, setNotificationSaving] = useState(false);
+
+  const loadNotificationPreference = useCallback(async () => {
+    if (!session?.user?.id) {
+      setNotificationsEnabled(false);
+      return;
+    }
+
+    setNotificationLoading(true);
+    try {
+      const [{ data: item, error: itemError }, { data: preference, error: preferenceError }] = await Promise.all([
+        supabase
+          .from(TABLE)
+          .select("author_id")
+          .eq("id", itemId)
+          .maybeSingle(),
+        supabase
+          .from("comment_notification_preferences")
+          .select("enabled")
+          .eq("item_id", itemId)
+          .eq("user_id", session.user.id)
+          .maybeSingle(),
+      ]);
+
+      if (itemError) throw itemError;
+      if (preferenceError) throw preferenceError;
+
+      const ownerId = item?.author_id || null;
+      // Item owners are opted in by default. Everyone else is opted out
+      // until they explicitly enable notifications for this item.
+      setNotificationsEnabled(
+        preference ? !!preference.enabled : ownerId === session.user.id
+      );
+    } catch (e) {
+      console.error("Couldn't load comment notification preference:", e);
+      setNotificationsEnabled(false);
+    } finally {
+      setNotificationLoading(false);
+    }
+  }, [itemId, session?.user?.id]);
+
+  const toggleNotificationPreference = async () => {
+    if (!session?.user?.id || notificationSaving || notificationLoading) return;
+
+    const nextEnabled = !notificationsEnabled;
+    const previous = notificationsEnabled;
+    setNotificationsEnabled(nextEnabled);
+    setNotificationSaving(true);
+
+    const { error } = await supabase
+      .from("comment_notification_preferences")
+      .upsert(
+        {
+          user_id: session.user.id,
+          item_id: itemId,
+          enabled: nextEnabled,
+        },
+        { onConflict: "user_id,item_id" }
+      );
+
+    if (error) {
+      console.error("Couldn't save comment notification preference:", error);
+      setNotificationsEnabled(previous);
+    }
+
+    setNotificationSaving(false);
+  };
 
   const loadComments = useCallback(async () => {
     setLoading(true);
@@ -182,12 +251,13 @@ function TradeComments({ itemId, session, profile, popover = false }) {
 
   useEffect(() => {
     loadComments();
+    loadNotificationPreference();
     setReplyTo(null);
     setBody("");
     setEditingId(null);
     setEditBody("");
     setPendingDelete(null);
-  }, [loadComments]);
+  }, [loadComments, loadNotificationPreference]);
 
   // Same rule the item rows use: your own comments, or anything if you're admin.
   const canManage = (comment) =>
@@ -500,6 +570,46 @@ function TradeComments({ itemId, session, profile, popover = false }) {
               : { marginTop: 8, border: "1px solid #2A2A2A", borderRadius: 9, background: "#0A0A0A", padding: 10 }
           }
         >
+          {session && profile && (
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
+                marginBottom: 9,
+                padding: "6px 8px",
+                borderRadius: 6,
+                background: "#121212",
+                border: "1px solid #242424",
+                color: "#8A8580",
+                fontSize: 10,
+                lineHeight: 1.3,
+                cursor: notificationLoading || notificationSaving ? "default" : "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={notificationsEnabled}
+                onChange={toggleNotificationPreference}
+                disabled={notificationLoading || notificationSaving}
+                aria-label="Email me about comments and replies on this item"
+                style={{
+                  width: 12,
+                  height: 12,
+                  margin: 0,
+                  accentColor: "#9D7047",
+                  flexShrink: 0,
+                }}
+              />
+              <span>
+                Email me about comments and replies on this item
+              </span>
+              {notificationSaving && (
+                <RefreshCw size={11} className="spin" style={{ marginLeft: "auto", flexShrink: 0 }} />
+              )}
+            </label>
+          )}
+
           {loading ? (
             <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>Loading comments…</div>
           ) : visibleComments.length === 0 ? (
