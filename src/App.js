@@ -1438,9 +1438,9 @@ export default function DiscogsTradeList() {
       return;
     }
     const prev = entries;
-    setEntries((e) => e.map((x) => (x.id === id ? { ...x, status: !!status } : x)));
+    setEntries((e) => e.map((x) => (x.id === id ? { ...x, status, found: !!status } : x)));
     try {
-      const { error } = await supabase.from(TABLE).update({ status: !!status }).eq("id", id);
+      const { error } = await supabase.from(TABLE).update({ status, found: !!status }).eq("id", id);
       if (error) throw error;
     } catch (e) {
       setEntries(prev);
