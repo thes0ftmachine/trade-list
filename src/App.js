@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, Disc3, User, Plus, X, RefreshCw, ListMusic, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck } from "lucide-react";
+import { Search, Disc3, User, Plus, X, RefreshCw, ListMusic, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info } from "lucide-react";
 import * as XLSX from "xlsx";
 import { createClient } from "@supabase/supabase-js";
 import { Analytics } from "@vercel/analytics/react";
@@ -756,6 +756,7 @@ export default function DiscogsTradeList() {
   // even when most people actually want vinyl. "vinyl" | "cd" | "both" | null
   const [modalFormatChoice, setModalFormatChoice] = useState(null);
   const [showUnavailable, setShowUnavailable] = useState(false);
+  const [showGradingGuide, setShowGradingGuide] = useState(false);
 
   // status popup (For Trade items only) — { id, title, current } | null
   const [statusModal, setStatusModal] = useState(null);
@@ -2934,9 +2935,31 @@ export default function DiscogsTradeList() {
 
             {listModal.type === "trade" && (
               <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
-                  CONDITION <span style={{ color: "#6B6B6B", fontWeight: 400, letterSpacing: 0 }}>(optional)</span>
-                </label>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", fontWeight: 600, letterSpacing: 1 }}>
+                    CONDITION <span style={{ color: "#6B6B6B", fontWeight: 400, letterSpacing: 0 }}>(optional)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowGradingGuide(true)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      background: "none",
+                      border: "none",
+                      color: "#9D7047",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      padding: "2px 4px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Info size={12} />
+                    How to grade
+                  </button>
+                </div>
                 <p style={{ fontSize: 11.5, color: "#6B6B6B", margin: "0 0 8px", lineHeight: 1.4 }}>
                   Use vinyl/cover with listing condition, and add as much detail as you'd like.
                 </p>
@@ -3005,6 +3028,137 @@ export default function DiscogsTradeList() {
             >
               Add
             </button>
+          </div>
+        </div>
+      )}
+
+      {showGradingGuide && (
+        <div
+          onClick={() => setShowGradingGuide(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 1100,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 460,
+              maxHeight: "80vh",
+              overflowY: "auto",
+              background: "#121212",
+              border: "1px solid #2A2A2A",
+              borderRadius: 12,
+              padding: 20,
+              boxSizing: "border-box",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F0EC" }}>How to Grade</div>
+              <button
+                onClick={() => setShowGradingGuide(false)}
+                title="Close"
+                style={{ background: "none", border: "none", color: "#9A9A9A", cursor: "pointer", flexShrink: 0, padding: 4 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p className="mono" style={{ fontSize: 10.5, color: "#6B6B6B", margin: "0 0 16px", lineHeight: 1.5 }}>
+              A quick guide for describing vinyl/cover condition honestly.
+            </p>
+
+            {[
+              {
+                grade: "Mint (M)",
+                color: "#8FE3C1",
+                lines: [
+                  "Absolutely perfect in every way. Never played and possibly still sealed. This grade should be used very sparingly.",
+                ],
+                bullets: [],
+              },
+              {
+                grade: "Near Mint (NM)",
+                color: "#8FE3C1",
+                lines: [
+                  "Nearly perfect with little to no evidence of use. Likely never played, with flawless playback and no obvious signs of wear.",
+                ],
+                bullets: [
+                  "No noticeable surface marks or wear",
+                  "Cover and inserts show only the slightest handling, if any",
+                  "No creases, seam splits, cut-outs, or significant defects",
+                ],
+              },
+              {
+                grade: "Very Good Plus (VG+)",
+                color: "#708BE4",
+                lines: [
+                  "Well cared for and lightly used. Minor cosmetic imperfections may be present, but playback is not meaningfully affected.",
+                ],
+                bullets: [
+                  "Light scuffs or faint surface scratches",
+                  "Possible minor spindle marks or light label wear",
+                  "Slight cover wear, corner wear, or small seam splits",
+                  "Any warping is minimal and does not affect playback",
+                ],
+              },
+              {
+                grade: "Very Good (VG)",
+                color: "#C99A3A",
+                lines: [
+                  "Noticeable signs of use with some impact on playback, but still enjoyable and fully playable.",
+                ],
+                bullets: [
+                  "Surface noise may be present, especially during quiet passages",
+                  "Light groove wear and scratches that may affect sound",
+                  "Writing, ring wear, stickers, tape, or residue may be present on labels or cover",
+                  "Visibly noticeable wear is present",
+                ],
+              },
+              {
+                grade: "Good (G / G+)",
+                color: "#9D7047",
+                lines: ["Heavily used but still playable without skipping."],
+                bullets: [
+                  "Significant surface noise and visible wear",
+                  "Scratches, groove wear, and frequent audible ticks",
+                  "Cover may have seam splits, heavy ring wear, excessive writing, tape, or other defects",
+                ],
+              },
+            ].map((section, i) => (
+              <div key={section.grade} style={{ marginBottom: i === 4 ? 4 : 16 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: section.color,
+                    marginBottom: 5,
+                  }}
+                >
+                  {section.grade}
+                </div>
+                {section.lines.map((line, li) => (
+                  <p key={li} style={{ fontSize: 12.5, color: "#D8D3CC", margin: "0 0 6px", lineHeight: 1.5 }}>
+                    {line}
+                  </p>
+                ))}
+                {section.bullets.length > 0 && (
+                  <ul style={{ margin: "0 0 0 18px", padding: 0 }}>
+                    {section.bullets.map((b, bi) => (
+                      <li key={bi} style={{ fontSize: 12, color: "#9A9A9A", lineHeight: 1.6 }}>
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
