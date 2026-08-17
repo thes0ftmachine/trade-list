@@ -1435,16 +1435,31 @@ export default function DiscogsTradeList() {
     const target = entries.find((x) => x.id === id);
     if (!target || (!profile?.is_admin && target.author_id !== session?.user?.id)) {
       showToast("You can only change your own items");
-      return;
+      return false;
     }
+
     const prev = entries;
-    setEntries((e) => e.map((x) => (x.id === id ? { ...x, status, found: !!status } : x)));
+
+    // Status belongs to the tradelist row. Do not also write the legacy
+    // "found" field here: that field is not part of the tradelist schema and
+    // causes Supabase to reject an otherwise valid status update.
+    setEntries((e) => e.map((x) => (x.id === id ? { ...x, status } : x)));
+
     try {
-      const { error } = await supabase.from(TABLE).update({ status, found: !!status }).eq("id", id);
+      const { error } = await supabase
+        .from(TABLE)
+        .update({ status })
+        .eq("id", id);
+
       if (error) throw error;
+
+      showToast("Status updated", true);
+      return true;
     } catch (e) {
+      console.error("Couldn't update status:", e);
       setEntries(prev);
       showToast("Couldn't update status — try again");
+      return false;
     }
   };
 
@@ -3167,8 +3182,8 @@ export default function DiscogsTradeList() {
                   key={key}
                   type="button"
                   onClick={async () => {
-                    await setItemStatus(statusModal.id, key === "available" ? null : key);
-                    setStatusModal(null);
+                    const saved = await setItemStatus(statusModal.id, key === "available" ? null : key);
+                    if (saved) setStatusModal(null);
                   }}
                   style={{
                     width: "100%",
@@ -3197,8 +3212,8 @@ export default function DiscogsTradeList() {
               <button
                 type="button"
                 onClick={async () => {
-                  await setItemStatus(statusModal.id, null);
-                  setStatusModal(null);
+                  const saved = await setItemStatus(statusModal.id, null);
+                  if (saved) setStatusModal(null);
                 }}
                 className="mono"
                 style={{
