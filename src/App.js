@@ -2593,7 +2593,7 @@ export default function DiscogsTradeList() {
                                 lineHeight: 1.4,
                               }}
                             >
-                              <span className="mono" style={{ color: "#9D7047", fontSize: 10.5 }}>
+                              <span className="mono" style={{ color: "#CEAE73", fontSize: 10.5 }}>
                                 CONDITION
                                 {g.people.length > 1 ? ` · ${p.name}` : ""}
                               </span>
