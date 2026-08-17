@@ -50,16 +50,16 @@ const LIST_TYPES = {
     label: "For Trade",
     icon: Package,
     intro:
-      "List records you're ready to let go. Search Discogs to pull in the details, note the condition, and it'll show up here for others browsing to trade for.",
+      "List records you're ready to let go. Search Discogs to pull in the details, note the condition, and it'll show up here for others browsing to buy/trade for.",
     addLabel: "List",
-    emptyAdd: "No items up for trade yet. Be the first to list something.",
+    emptyAdd: "No items up for sale/trade yet. Be the first to list something.",
   },
   seeking: {
     key: "seeking",
     label: "In Search Of",
     icon: Search,
     intro:
-      "Search Discogs, drop what you're hunting for onto the list, or import your Discogs wantlist — and keep an eye on what others have up for trade.",
+      "Search Discogs, drop what you're hunting for onto the list, or import your Discogs wantlist and keep an eye on what others have up for sale/trade.",
     addLabel: "Want",
     emptyAdd: "No one's added a want yet. Be the first to add something you're hunting for.",
   },
@@ -2558,8 +2558,39 @@ export default function DiscogsTradeList() {
                         {g.format && <span style={{ color: formatColor(g.format) }}>{g.format}</span>}
                       </div>
                     )}
+                    {g.people.some((p) => p.condition) && (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 3,
+                          marginTop: 7,
+                        }}
+                      >
+                        {g.people
+                          .filter((p) => p.condition)
+                          .map((p) => (
+                            <div
+                              key={`condition-${p.id}`}
+                              style={{
+                                fontSize: 11.5,
+                                color: "#D8D3CC",
+                                lineHeight: 1.4,
+                              }}
+                            >
+                              <span className="mono" style={{ color: "#9D7047", fontSize: 10.5 }}>
+                                CONDITION
+                                {g.people.length > 1 ? ` · ${p.name}` : ""}
+                              </span>
+                              <div style={{ marginTop: 2 }}>
+                                {p.condition}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
                     {g.people.some((p) => p.notes) && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 5 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 7 }}>
                         {g.people
                           .filter((p) => p.notes)
                           .map((p) => (
@@ -2602,9 +2633,6 @@ export default function DiscogsTradeList() {
                               style={{ fontSize: 11, background: "#121212", color: "#F5F0EC", padding: "3px 8px", borderRadius: 20, border: "1px solid #2A2A2A", display: "inline-flex", alignItems: "center", gap: 4 }}
                             >
                               {p.name}
-                              {p.condition && (
-                                <StickyNote size={11} color="#9A9A9A" title={`Condition: ${p.condition}`} />
-                              )}
                             </span>
                             {listType === "trade" && (
                               <button
