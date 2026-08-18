@@ -2731,30 +2731,60 @@ export default function DiscogsTradeList() {
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 7 }}>
                         {g.people
                           .filter((p) => p.notes)
-                          .map((p) => (
-                            <div
-                              key={p.id}
-                              style={{
-                                fontSize: 11.5,
-                                color: "#9A9A9A",
-                                fontStyle: "italic",
-                                lineHeight: 1.4,
-                                display: "flex",
-                                alignItems: "flex-start",
-                                gap: 5,
-                              }}
-                            >
-                              <StickyNote size={11} color="#6B6B6B" style={{ flexShrink: 0, marginTop: 3 }} />
-                              <span>
-                                {g.people.length > 1 && (
-                                  <span className="mono" style={{ fontStyle: "normal", color: "#6B6B6B" }}>
-                                    {p.name}:{" "}
-                                  </span>
+                          .map((p) => {
+                            const canModify = !!session && !!profile && (profile.is_admin || p.author_id === session.user.id);
+                            return (
+                              <div
+                                key={p.id}
+                                style={{
+                                  fontSize: 11.5,
+                                  color: "#9A9A9A",
+                                  fontStyle: "italic",
+                                  lineHeight: 1.4,
+                                  display: "flex",
+                                  alignItems: "flex-start",
+                                  gap: 5,
+                                }}
+                              >
+                                <StickyNote size={11} color="#6B6B6B" style={{ flexShrink: 0, marginTop: 3 }} />
+                                <span style={{ flex: 1, minWidth: 0 }}>
+                                  {g.people.length > 1 && (
+                                    <span className="mono" style={{ fontStyle: "normal", color: "#6B6B6B" }}>
+                                      {p.name}:{" "}
+                                    </span>
+                                  )}
+                                  {p.notes}
+                                </span>
+                                {/* Pencil sits right after the note text it edits,
+                                    rather than off in the chips row below. */}
+                                {canModify && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setNoteEditModal({ id: p.id, title: g.title, value: p.notes || "" })}
+                                    title={`Edit note — ${p.notes}`}
+                                    aria-label={`Edit ${p.name}'s note`}
+                                    style={{
+                                      border: "1px solid transparent",
+                                      background: "transparent",
+                                      color: "#eae135",
+                                      padding: 0,
+                                      width: 22,
+                                      height: 22,
+                                      borderRadius: 6,
+                                      cursor: "pointer",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      flexShrink: 0,
+                                      marginTop: 1,
+                                    }}
+                                  >
+                                    <Pencil size={12} />
+                                  </button>
                                 )}
-                                {p.notes}
-                              </span>
-                            </div>
-                          ))}
+                              </div>
+                            );
+                          })}
                       </div>
                     )}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6, rowGap: 8 }}>
@@ -2870,7 +2900,11 @@ export default function DiscogsTradeList() {
                                 ))}
                             </div>
 
-                            {canModify && (
+                            {/* Only shown pre-note — once a note exists, its pencil
+                                lives next to the note text above instead. The
+                                trash can now sits in the right-hand slot with
+                                the comment button. */}
+                            {canModify && !p.notes && (
                               <div
                                 style={{
                                   display: "flex",
@@ -2883,8 +2917,8 @@ export default function DiscogsTradeList() {
                                 <button
                                   type="button"
                                   onClick={() => setNoteEditModal({ id: p.id, title: g.title, value: p.notes || "" })}
-                                  title={p.notes ? `Edit note — ${p.notes}` : "Add a note"}
-                                  aria-label={`Edit ${p.name}'s note`}
+                                  title="Add a note"
+                                  aria-label={`Add ${p.name}'s note`}
                                   style={{
                                     border: "1px solid transparent",
                                     background: "transparent",
@@ -2901,29 +2935,6 @@ export default function DiscogsTradeList() {
                                   }}
                                 >
                                   <Pencil size={14} />
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => setRemoveModal({ id: p.id, title: g.title, name: p.name, unwanted: false })}
-                                  title={`Remove ${p.name}'s item`}
-                                  aria-label={`Remove ${p.name}'s item`}
-                                  style={{
-                                    border: "1px solid #3A302A",
-                                    background: "rgba(157,112,71,0.08)",
-                                    color: "#e6705b",
-                                    padding: 0,
-                                    width: 34,
-                                    height: 34,
-                                    borderRadius: 7,
-                                    cursor: "pointer",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  <Trash2 size={15} strokeWidth={2.25} />
                                 </button>
                               </div>
                             )}
@@ -2965,18 +2976,46 @@ export default function DiscogsTradeList() {
                     </div>
                   </div>
                   {/* Comments hold the right-hand slot on both tabs, so the
-                      thread opens in the same place wherever you are. */}
+                      thread opens in the same place wherever you are. Trash
+                      sits alongside it — same right-aligned slot per person. */}
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-                    {g.people.map((p) => (
-                      <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                        {g.people.length > 1 && (
-                          <span className="mono" style={{ fontSize: 9.5, color: "#6B6B6B" }}>
-                            {p.name}
-                          </span>
-                        )}
-                        <TradeComments itemId={p.id} session={session} profile={profile} popover />
-                      </div>
-                    ))}
+                    {g.people.map((p) => {
+                      const canModify = !!session && !!profile && (profile.is_admin || p.author_id === session.user.id);
+                      return (
+                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          {g.people.length > 1 && (
+                            <span className="mono" style={{ fontSize: 9.5, color: "#6B6B6B" }}>
+                              {p.name}
+                            </span>
+                          )}
+                          <TradeComments itemId={p.id} session={session} profile={profile} popover />
+                          {canModify && (
+                            <button
+                              type="button"
+                              onClick={() => setRemoveModal({ id: p.id, title: g.title, name: p.name, unwanted: false })}
+                              title={`Remove ${p.name}'s item`}
+                              aria-label={`Remove ${p.name}'s item`}
+                              style={{
+                                border: "1px solid #3A302A",
+                                background: "rgba(157,112,71,0.08)",
+                                color: "#e6705b",
+                                padding: 0,
+                                width: 26,
+                                height: 26,
+                                borderRadius: 7,
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                              }}
+                            >
+                              <Trash2 size={13} strokeWidth={2.25} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))
