@@ -2757,93 +2757,180 @@ export default function DiscogsTradeList() {
                           ))}
                       </div>
                     )}
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6, rowGap: 8 }}>
                       {g.people.map((p) => {
                         const statusInfo = listType === "trade" && p.status ? STATUS_CONFIG[p.status] : null;
                         const StatusIcon = statusInfo ? statusInfo.icon : null;
                         const canModify = !!session && !!profile && (profile.is_admin || p.author_id === session.user.id);
                         const clickable = listType === "trade" && canModify;
                         return (
-                          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-                            <span
-                              className="mono"
-                              title={p.name}
-                              style={{ fontSize: 11, background: "#121212", color: "#F5F0EC", padding: "3px 8px", borderRadius: 20, border: "1px solid #2A2A2A", display: "inline-flex", alignItems: "center", gap: 4 }}
+                          <div
+                            key={p.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-end",
+                              gap: 8,
+                              flexWrap: "wrap",
+                              width: "100%",
+                              rowGap: 8,
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                flexWrap: "wrap",
+                                flex: "1 1 auto",
+                                minWidth: 0,
+                              }}
                             >
-                              {p.name}
-                            </span>
-                            {listType === "trade" && (
-                              <button
-                                type="button"
-                                onClick={clickable ? () => setStatusModal({ id: p.id, title: g.title, current: p.status || null }) : undefined}
+                              <span
                                 className="mono"
-                                title={`Status: ${statusInfo ? statusInfo.label : "Available"}${clickable ? " — click to change" : ""}`}
-                                style={{ fontSize: 10.5, background: `${statusInfo ? statusInfo.color : "#8FE3C1"}14`, color: statusInfo ? statusInfo.color : "#8FE3C1", padding: "3px 8px", borderRadius: 20, border: `1px solid ${(statusInfo ? statusInfo.color : "#8FE3C1")}66`, cursor: clickable ? "pointer" : "default", display: "inline-flex", alignItems: "center", gap: 4 }}
+                                title={p.name}
+                                style={{
+                                  fontSize: 11,
+                                  background: "#121212",
+                                  color: "#F5F0EC",
+                                  padding: "4px 9px",
+                                  borderRadius: 20,
+                                  border: "1px solid #2A2A2A",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  minHeight: 28,
+                                  boxSizing: "border-box",
+                                }}
                               >
-                                {statusInfo ? <StatusIcon size={11} color={statusInfo.color} /> : <CheckCircle2 size={11} color="#8FE3C1" />}
-                                {statusInfo ? statusInfo.label : "Available"}
-                              </button>
-                            )}
-                            {listType === "trade" &&
-                              listingBadges(p).map((badge) => (
+                                {p.name}
+                              </span>
+
+                              {listType === "trade" && (
                                 <button
-                                  key={badge.key}
                                   type="button"
-                                  onClick={
-                                    clickable
-                                      ? () =>
-                                          setListingEditModal({
-                                            id: p.id,
-                                            title: g.title,
-                                            listingType: listingTypeOf(p),
-                                            price: p.price != null ? String(p.price) : "",
-                                          })
-                                      : undefined
-                                  }
+                                  onClick={clickable ? () => setStatusModal({ id: p.id, title: g.title, current: p.status || null }) : undefined}
                                   className="mono"
-                                  title={`${badge.label}${clickable ? " — click to change" : ""}`}
+                                  title={`Status: ${statusInfo ? statusInfo.label : "Available"}${clickable ? " — click to change" : ""}`}
                                   style={{
                                     fontSize: 10.5,
-                                    background: `${badge.color}14`,
-                                    color: badge.color,
-                                    padding: "3px 8px",
+                                    background: `${statusInfo ? statusInfo.color : "#8FE3C1"}14`,
+                                    color: statusInfo ? statusInfo.color : "#8FE3C1",
+                                    padding: "4px 9px",
+                                    minHeight: 28,
                                     borderRadius: 20,
-                                    border: `1px solid ${badge.color}66`,
+                                    border: `1px solid ${(statusInfo ? statusInfo.color : "#8FE3C1")}66`,
                                     cursor: clickable ? "pointer" : "default",
                                     display: "inline-flex",
                                     alignItems: "center",
                                     gap: 4,
+                                    boxSizing: "border-box",
                                   }}
                                 >
-                                  <badge.icon size={11} color={badge.color} />
-                                  {badge.label}
+                                  {statusInfo ? <StatusIcon size={11} color={statusInfo.color} /> : <CheckCircle2 size={11} color="#8FE3C1" />}
+                                  {statusInfo ? statusInfo.label : "Available"}
                                 </button>
-                              ))}
+                              )}
+
+                              {listType === "trade" &&
+                                listingBadges(p).map((badge) => (
+                                  <button
+                                    key={badge.key}
+                                    type="button"
+                                    onClick={
+                                      clickable
+                                        ? () =>
+                                            setListingEditModal({
+                                              id: p.id,
+                                              title: g.title,
+                                              listingType: listingTypeOf(p),
+                                              price: p.price != null ? String(p.price) : "",
+                                            })
+                                        : undefined
+                                    }
+                                    className="mono"
+                                    title={`${badge.label}${clickable ? " — click to change" : ""}`}
+                                    style={{
+                                      fontSize: 10.5,
+                                      background: `${badge.color}14`,
+                                      color: badge.color,
+                                      padding: "4px 9px",
+                                      minHeight: 28,
+                                      borderRadius: 20,
+                                      border: `1px solid ${badge.color}66`,
+                                      cursor: clickable ? "pointer" : "default",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      boxSizing: "border-box",
+                                    }}
+                                  >
+                                    <badge.icon size={11} color={badge.color} />
+                                    {badge.label}
+                                  </button>
+                                ))}
+                            </div>
+
                             {canModify && (
-                              <button
-                                type="button"
-                                onClick={() => setNoteEditModal({ id: p.id, title: g.title, value: p.notes || "" })}
-                                title={p.notes ? `Edit note — ${p.notes}` : "Add a note"}
-                                aria-label={`Edit ${p.name}'s note`}
-                                style={{ border: "none", background: "transparent", color: "#F1CA76", padding: 2, cursor: "pointer" }}
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  marginLeft: "auto",
+                                  flexShrink: 0,
+                                }}
                               >
-                                <Pencil size={13} />
-                              </button>
-                            )}
-                            {canModify && (
-                              <button
-                                type="button"
-                                onClick={() => setRemoveModal({ id: p.id, title: g.title, name: p.name, unwanted: false })}
-                                title={`Remove ${p.name}'s item`}
-                                aria-label={`Remove ${p.name}'s item`}
-                                style={{ border: "none", background: "transparent", color: "#c7392f", padding: 2, cursor: "pointer" }}
-                              >
-                                <Trash2 size={14} strokeWidth={2.5} />
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setNoteEditModal({ id: p.id, title: g.title, value: p.notes || "" })}
+                                  title={p.notes ? `Edit note — ${p.notes}` : "Add a note"}
+                                  aria-label={`Edit ${p.name}'s note`}
+                                  style={{
+                                    border: "1px solid transparent",
+                                    background: "transparent",
+                                    color: "#6B6B6B",
+                                    padding: 0,
+                                    width: 34,
+                                    height: 34,
+                                    borderRadius: 7,
+                                    cursor: "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <Pencil size={14} />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setRemoveModal({ id: p.id, title: g.title, name: p.name, unwanted: false })}
+                                  title={`Remove ${p.name}'s item`}
+                                  aria-label={`Remove ${p.name}'s item`}
+                                  style={{
+                                    border: "1px solid #3A302A",
+                                    background: "rgba(157,112,71,0.08)",
+                                    color: "#9D7047",
+                                    padding: 0,
+                                    width: 34,
+                                    height: 34,
+                                    borderRadius: 7,
+                                    cursor: "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  <Trash2 size={15} strokeWidth={2.25} />
+                                </button>
+                              </div>
                             )}
                           </div>
                         );
                       })}
+
                       {/* Sized to sit level with the name chips it follows. One
                           button per item rather than per person — it copies the
                           item onto your own list whoever happens to be listing it. */}
