@@ -1071,14 +1071,14 @@ export default function DiscogsTradeList() {
     const lt = listingTypeOf(p);
     const badges = [];
     if (lt === "trade" || lt === "both") {
-      badges.push({ key: "trade", label: "For Trade", icon: Repeat, color: "#5B9BD5" });
+      badges.push({ key: "trade", label: "For Trade", icon: Repeat, color: "#667f96" });
     }
     if (lt === "sale" || lt === "both") {
       badges.push({
         key: "sale",
         label: p.price != null ? `For Sale · $${p.price}` : "For Sale",
         icon: Tag,
-        color: "#8FE3C1",
+        color: "#95A48B",
       });
     }
     return badges;
