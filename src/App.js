@@ -2888,7 +2888,7 @@ export default function DiscogsTradeList() {
                                   style={{
                                     border: "1px solid transparent",
                                     background: "transparent",
-                                    color: "#6B6B6B",
+                                    color: "#eae135",
                                     padding: 0,
                                     width: 34,
                                     height: 34,
@@ -2911,7 +2911,7 @@ export default function DiscogsTradeList() {
                                   style={{
                                     border: "1px solid #3A302A",
                                     background: "rgba(157,112,71,0.08)",
-                                    color: "#9D7047",
+                                    color: "#e6705b",
                                     padding: 0,
                                     width: 34,
                                     height: 34,
