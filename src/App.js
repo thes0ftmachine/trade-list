@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, Disc3, User, Plus, X, RefreshCw, ListMusic, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag } from "lucide-react";
+import { Search, Disc3, User, Plus, X, Trash2, RefreshCw, ListMusic, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag } from "lucide-react";
 import * as XLSX from "xlsx";
 import { createClient } from "@supabase/supabase-js";
 import { Analytics } from "@vercel/analytics/react";
