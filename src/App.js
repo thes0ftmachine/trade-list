@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, Disc3, User, Plus, X, RefreshCw, ListMusic, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info } from "lucide-react";
+import { Search, Disc3, User, Plus, X, RefreshCw, ListMusic, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag } from "lucide-react";
 import * as XLSX from "xlsx";
 import { createClient } from "@supabase/supabase-js";
 import { Analytics } from "@vercel/analytics/react";
@@ -25,6 +25,15 @@ const STATUS_CONFIG = {
   claimed: { label: "Claimed", icon: Package, color: "#708BE4" },
   pending: { label: "Pending", icon: PauseCircle, color: "#C99A3A" },
   traded: { label: "Traded", icon: Truck, color: "#403652" },
+};
+
+// how an item up for sale/trade can be swapped — legacy rows (added before
+// this existed) have no listing_type saved, so every read of it falls back
+// to "trade" to match the app's original, only behavior.
+const LISTING_TYPE_CONFIG = {
+  trade: { label: "Trade", icon: Repeat, color: "#5B9BD5" },
+  sale: { label: "Sale", icon: Tag, color: "#8FE3C1" },
+  both: { label: "Sale or Trade", icon: Tag, color: "#CEAE73" },
 };
 
 // The Trade List logo — cat, records, wordmark baked into the photo itself,
@@ -758,8 +767,17 @@ export default function DiscogsTradeList() {
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [showGradingGuide, setShowGradingGuide] = useState(false);
 
+  // how the item can be swapped, required whenever listModal.type === "trade".
+  // "trade" | "sale" | "both". modalPrice is a raw string so the input can
+  // hold in-progress typing (e.g. "12.") before it's parsed on submit.
+  const [modalListingType, setModalListingType] = useState("trade");
+  const [modalPrice, setModalPrice] = useState("");
+
   // status popup (For Trade items only) — { id, title, current } | null
   const [statusModal, setStatusModal] = useState(null);
+
+  // listing-type/price edit popup — { id, title, listingType, price } | null
+  const [listingEditModal, setListingEditModal] = useState(null);
 
   // remove popup — { id, title, name, unwanted } | null. Clicking the X asks
   // whether to mark the item unavailable (reversible) or delete the row for
@@ -1031,6 +1049,41 @@ export default function DiscogsTradeList() {
     return "#9A9A9A";
   };
 
+  // "" -> null (no price entered); anything that isn't a valid, non-negative
+  // number -> null so callers can treat it as "invalid" and block submission.
+  const parsePrice = (raw) => {
+    const trimmed = (raw || "").toString().trim();
+    if (!trimmed) return null;
+    const n = Number(trimmed.replace(/^\$/, ""));
+    if (isNaN(n) || n < 0) return null;
+    return Math.round(n * 100) / 100;
+  };
+
+  // Every trade-list row read after this feature shipped may still be missing
+  // listing_type (added before it existed) — treat those as "trade" so old
+  // listings keep behaving exactly as they did before.
+  const listingTypeOf = (p) => p.listing_type || "trade";
+
+  // Badges to render for a person's item — "both" shows Trade and Sale side
+  // by side rather than a single merged badge, so it's clear at a glance
+  // that either option is on the table.
+  const listingBadges = (p) => {
+    const lt = listingTypeOf(p);
+    const badges = [];
+    if (lt === "trade" || lt === "both") {
+      badges.push({ key: "trade", label: "For Trade", icon: Repeat, color: "#5B9BD5" });
+    }
+    if (lt === "sale" || lt === "both") {
+      badges.push({
+        key: "sale",
+        label: p.price != null ? `For Sale · $${p.price}` : "For Sale",
+        icon: Tag,
+        color: "#8FE3C1",
+      });
+    }
+    return badges;
+  };
+
   const getDisplayFormat = (item) => {
     const base = item.format || null;
     const notesLower = (item.notes || "").toLowerCase();
@@ -1085,6 +1138,8 @@ export default function DiscogsTradeList() {
     setModalCondition("");
     setModalForName(name);
     setModalFormatChoice(null);
+    setModalListingType("trade");
+    setModalPrice("");
     setListModal({ source, item, type });
   };
 
@@ -1094,9 +1149,23 @@ export default function DiscogsTradeList() {
     setModalCondition("");
     setModalForName("");
     setModalFormatChoice(null);
+    setModalListingType("trade");
+    setModalPrice("");
   };
 
   const isMasterResult = (item) => item && item.type === "master";
+
+  // Gate for the list-modal submit button: blocks on a missing master-release
+  // format choice, or (for trade-type items) a missing/invalid price when
+  // Sell or Both is selected.
+  const listModalBlocked = () => {
+    if (!listModal) return true;
+    if (isMasterResult(listModal.item) && !modalFormatChoice) return true;
+    if (listModal.type === "trade" && (modalListingType === "sale" || modalListingType === "both")) {
+      if (parsePrice(modalPrice) === null) return true;
+    }
+    return false;
+  };
 
   const submitListModal = async () => {
     if (!listModal) return;
@@ -1112,6 +1181,12 @@ export default function DiscogsTradeList() {
     const item = listModal.item;
     if (isMasterResult(item) && !modalFormatChoice) {
       showToast("Choose Vinyl, CD, or Both first");
+      return;
+    }
+    const needsPrice = listModal.type === "trade" && (modalListingType === "sale" || modalListingType === "both");
+    const parsedPrice = parsePrice(modalPrice);
+    if (needsPrice && parsedPrice === null) {
+      showToast("Enter a valid price");
       return;
     }
     if (isDuplicate(finalName, item.title, listModal.type) && !confirmDuplicate(item.title)) {
@@ -1130,6 +1205,8 @@ export default function DiscogsTradeList() {
       url: item.uri ? `https://www.discogs.com${item.uri}` : item.url || null,
       notes: modalNotes.trim() || null,
       condition: listModal.type === "trade" ? modalCondition.trim() || null : null,
+      listing_type: listModal.type === "trade" ? modalListingType : null,
+      price: needsPrice ? parsedPrice : null,
       genre: deriveGenre(item),
       format: masterFormatOverride || deriveFormat(item),
     };
@@ -1272,6 +1349,7 @@ export default function DiscogsTradeList() {
     genre: ["genre", "style", "category"],
     format: ["format", "media", "media type"],
     condition: ["condition", "grade", "vinyl condition", "sleeve condition"],
+    price: ["price", "asking price", "sale price", "$"],
   };
 
   const findColumn = (headerRow, aliases, claimed) => {
@@ -1326,6 +1404,8 @@ export default function DiscogsTradeList() {
         if (formatCol !== -1) claimed.add(formatCol);
         const conditionCol = findColumn(header, COLUMN_ALIASES.condition, claimed);
         if (conditionCol !== -1) claimed.add(conditionCol);
+        const priceCol = findColumn(header, COLUMN_ALIASES.price, claimed);
+        if (priceCol !== -1) claimed.add(priceCol);
         const nameCol = findColumn(header, COLUMN_ALIASES.name, claimed);
 
         if (titleCol === -1) {
@@ -1348,6 +1428,7 @@ export default function DiscogsTradeList() {
             genre: genreCol !== -1 ? (r[genreCol] || "").toString().trim() : "",
             format: formatCol !== -1 ? (r[formatCol] || "").toString().trim() : "",
             condition: conditionCol !== -1 ? (r[conditionCol] || "").toString().trim() : "",
+            price: priceCol !== -1 ? (r[priceCol] || "").toString().trim() : "",
           }));
 
         if (parsed.length === 0) {
@@ -1378,6 +1459,11 @@ export default function DiscogsTradeList() {
     setUploading(true);
     const newEntries = uploadRows.map((r) => {
       const title = r.artist ? `${r.artist} – ${r.title}` : r.title;
+      // Bulk imports have no per-row way to pick Trade/Sale/Both, so a
+      // recognized price column implies "both" — otherwise it defaults to
+      // "trade" like every row did before this field existed. Either way
+      // it's editable afterward from the item's listing badge.
+      const importedPrice = listType === "trade" ? parsePrice(r.price) : null;
       return {
         id: newId(),
         author_id: session.user.id,
@@ -1391,6 +1477,8 @@ export default function DiscogsTradeList() {
         genre: r.genre || null,
         format: r.format || null,
         condition: listType === "trade" ? r.condition || null : null,
+        listing_type: listType === "trade" ? (importedPrice !== null ? "both" : "trade") : null,
+        price: importedPrice,
       };
     });
     try {
@@ -1460,6 +1548,40 @@ export default function DiscogsTradeList() {
       console.error("Couldn't update status:", e);
       setEntries(prev);
       showToast("Couldn't update status — try again");
+      return false;
+    }
+  };
+
+  const updateListing = async (id, listingType, priceInput) => {
+    const target = entries.find((x) => x.id === id);
+    if (!target || (!profile?.is_admin && target.author_id !== session?.user?.id)) {
+      showToast("You can only change your own items");
+      return false;
+    }
+    const needsPrice = listingType === "sale" || listingType === "both";
+    const price = needsPrice ? parsePrice(priceInput) : null;
+    if (needsPrice && price === null) {
+      showToast("Enter a valid price");
+      return false;
+    }
+
+    const prev = entries;
+    setEntries((e) => e.map((x) => (x.id === id ? { ...x, listing_type: listingType, price } : x)));
+
+    try {
+      const { error } = await supabase
+        .from(TABLE)
+        .update({ listing_type: listingType, price })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      showToast("Listing updated", true);
+      return true;
+    } catch (e) {
+      console.error("Couldn't update listing:", e);
+      setEntries(prev);
+      showToast("Couldn't update listing — try again");
       return false;
     }
   };
@@ -2212,7 +2334,7 @@ export default function DiscogsTradeList() {
                     Choose a .csv or .xlsx file
                   </button>
                   <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", margin: "8px 2px 0" }}>
-                    Columns recognized: Title/Album, Artist, Year, Thumb, URL, Notes, Genre, Format, Condition. Imported rows are owned by your account.
+                    Columns recognized: Title/Album, Artist, Year, Thumb, URL, Notes, Genre, Format, Condition, Price. Imported rows are owned by your account.
                   </p>
                 </div>
               )}
@@ -2662,6 +2784,41 @@ export default function DiscogsTradeList() {
                                 {statusInfo ? statusInfo.label : "Available"}
                               </button>
                             )}
+                            {listType === "trade" &&
+                              listingBadges(p).map((badge) => (
+                                <button
+                                  key={badge.key}
+                                  type="button"
+                                  onClick={
+                                    clickable
+                                      ? () =>
+                                          setListingEditModal({
+                                            id: p.id,
+                                            title: g.title,
+                                            listingType: listingTypeOf(p),
+                                            price: p.price != null ? String(p.price) : "",
+                                          })
+                                      : undefined
+                                  }
+                                  className="mono"
+                                  title={`${badge.label}${clickable ? " — click to change" : ""}`}
+                                  style={{
+                                    fontSize: 10.5,
+                                    background: `${badge.color}14`,
+                                    color: badge.color,
+                                    padding: "3px 8px",
+                                    borderRadius: 20,
+                                    border: `1px solid ${badge.color}66`,
+                                    cursor: clickable ? "pointer" : "default",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                  }}
+                                >
+                                  <badge.icon size={11} color={badge.color} />
+                                  {badge.label}
+                                </button>
+                              ))}
                             {canModify && (
                               <button
                                 type="button"
@@ -2934,6 +3091,77 @@ export default function DiscogsTradeList() {
             )}
 
             {listModal.type === "trade" && (
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+                  TRADE OR SELL <span style={{ color: "#9D7047" }}>*</span>
+                </label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {Object.entries(LISTING_TYPE_CONFIG).map(([key, cfg]) => {
+                    const selected = modalListingType === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setModalListingType(key)}
+                        style={{
+                          flex: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 5,
+                          padding: "9px 6px",
+                          borderRadius: 7,
+                          border: `1px solid ${selected ? cfg.color : "#2A2A2A"}`,
+                          background: selected ? `${cfg.color}22` : "#000000",
+                          color: selected ? cfg.color : "#D8D3CC",
+                          fontSize: 12.5,
+                          fontWeight: selected ? 700 : 500,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <cfg.icon size={13} />
+                        {key === "trade" ? "Trade" : key === "sale" ? "Sell" : "Both"}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {(modalListingType === "sale" || modalListingType === "both") && (
+                  <div style={{ marginTop: 10 }}>
+                    <label style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 5 }}>
+                      Asking price <span style={{ color: "#9D7047" }}>*</span>
+                    </label>
+                    <div style={{ position: "relative" }}>
+                      <span
+                        className="mono"
+                        style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#6B6B6B", fontSize: 13.5 }}
+                      >
+                        $
+                      </span>
+                      <input
+                        value={modalPrice}
+                        onChange={(e) => setModalPrice(e.target.value)}
+                        inputMode="decimal"
+                        placeholder="25"
+                        style={{
+                          width: "100%",
+                          padding: "9px 12px 9px 24px",
+                          borderRadius: 8,
+                          border: "1px solid #2A2A2A",
+                          background: "#000000",
+                          color: "#F5F0EC",
+                          fontSize: 13.5,
+                          boxSizing: "border-box",
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {listModal.type === "trade" && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                   <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", fontWeight: 600, letterSpacing: 1 }}>
@@ -3012,18 +3240,18 @@ export default function DiscogsTradeList() {
             <button
               type="button"
               onClick={submitListModal}
-              disabled={isMasterResult(listModal.item) && !modalFormatChoice}
+              disabled={listModalBlocked()}
               style={{
                 width: "100%",
                 marginTop: 14,
                 padding: "10px 16px",
                 borderRadius: 8,
                 border: "none",
-                background: isMasterResult(listModal.item) && !modalFormatChoice ? "#3A3A3A" : "#9D7047",
-                color: isMasterResult(listModal.item) && !modalFormatChoice ? "#8A8A8A" : "#F5F0EC",
+                background: listModalBlocked() ? "#3A3A3A" : "#9D7047",
+                color: listModalBlocked() ? "#8A8A8A" : "#F5F0EC",
                 fontWeight: 600,
                 fontSize: 14,
-                cursor: isMasterResult(listModal.item) && !modalFormatChoice ? "not-allowed" : "pointer",
+                cursor: listModalBlocked() ? "not-allowed" : "pointer",
               }}
             >
               Add
@@ -3389,6 +3617,147 @@ export default function DiscogsTradeList() {
             <button
               type="button"
               onClick={() => setStatusModal(null)}
+              className="mono"
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "none",
+                background: "transparent",
+                color: "#6B6B6B",
+                fontSize: 11.5,
+                cursor: "pointer",
+                marginTop: 4,
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {listingEditModal && (
+        <div
+          onClick={() => setListingEditModal(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 340,
+              background: "#121212",
+              border: "1px solid #2A2A2A",
+              borderRadius: 12,
+              padding: 20,
+              boxSizing: "border-box",
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC", marginBottom: 4 }}>
+              {listingEditModal.title}
+            </div>
+            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 16 }}>
+              Trade or sell?
+            </p>
+
+            <div style={{ display: "flex", gap: 6, marginBottom: listingEditModal.listingType === "trade" ? 16 : 10 }}>
+              {Object.entries(LISTING_TYPE_CONFIG).map(([key, cfg]) => {
+                const selected = listingEditModal.listingType === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setListingEditModal({ ...listingEditModal, listingType: key })}
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 5,
+                      padding: "9px 6px",
+                      borderRadius: 7,
+                      border: `1px solid ${selected ? cfg.color : "#2A2A2A"}`,
+                      background: selected ? `${cfg.color}22` : "#000000",
+                      color: selected ? cfg.color : "#D8D3CC",
+                      fontSize: 12.5,
+                      fontWeight: selected ? 700 : 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <cfg.icon size={13} />
+                    {key === "trade" ? "Trade" : key === "sale" ? "Sell" : "Both"}
+                  </button>
+                );
+              })}
+            </div>
+
+            {(listingEditModal.listingType === "sale" || listingEditModal.listingType === "both") && (
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 5 }}>
+                  Asking price <span style={{ color: "#9D7047" }}>*</span>
+                </label>
+                <div style={{ position: "relative" }}>
+                  <span
+                    className="mono"
+                    style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#6B6B6B", fontSize: 13.5 }}
+                  >
+                    $
+                  </span>
+                  <input
+                    value={listingEditModal.price}
+                    onChange={(e) => setListingEditModal({ ...listingEditModal, price: e.target.value })}
+                    inputMode="decimal"
+                    placeholder="25"
+                    autoFocus
+                    style={{
+                      width: "100%",
+                      padding: "9px 12px 9px 24px",
+                      borderRadius: 8,
+                      border: "1px solid #2A2A2A",
+                      background: "#000000",
+                      color: "#F5F0EC",
+                      fontSize: 13.5,
+                      boxSizing: "border-box",
+                      outline: "none",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={async () => {
+                const saved = await updateListing(listingEditModal.id, listingEditModal.listingType, listingEditModal.price);
+                if (saved) setListingEditModal(null);
+              }}
+              style={{
+                width: "100%",
+                padding: "10px 16px",
+                borderRadius: 8,
+                border: "none",
+                background: "#9D7047",
+                color: "#F5F0EC",
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: "pointer",
+              }}
+            >
+              Save
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setListingEditModal(null)}
               className="mono"
               style={{
                 width: "100%",
