@@ -2825,7 +2825,7 @@ export default function DiscogsTradeList() {
                                 onClick={() => setNoteEditModal({ id: p.id, title: g.title, value: p.notes || "" })}
                                 title={p.notes ? `Edit note — ${p.notes}` : "Add a note"}
                                 aria-label={`Edit ${p.name}'s note`}
-                                style={{ border: "none", background: "transparent", color: "#6B6B6B", padding: 2, cursor: "pointer" }}
+                                style={{ border: "none", background: "transparent", color: "#F1CA76", padding: 2, cursor: "pointer" }}
                               >
                                 <Pencil size={13} />
                               </button>
@@ -2836,9 +2836,9 @@ export default function DiscogsTradeList() {
                                 onClick={() => setRemoveModal({ id: p.id, title: g.title, name: p.name, unwanted: false })}
                                 title={`Remove ${p.name}'s item`}
                                 aria-label={`Remove ${p.name}'s item`}
-                                style={{ border: "none", background: "transparent", color: "#9D7047", padding: 2, cursor: "pointer" }}
+                                style={{ border: "none", background: "transparent", color: "#c7392f", padding: 2, cursor: "pointer" }}
                               >
-                                <X size={14} strokeWidth={2.5} />
+                                <Trash2 size={14} strokeWidth={2.5} />
                               </button>
                             )}
                           </div>
