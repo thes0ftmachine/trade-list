@@ -1769,6 +1769,15 @@ export default function DiscogsTradeList() {
           .listtype-btn { padding: 12px 8px !important; font-size: 13px !important; }
           button { min-height: 38px; }
         }
+
+        /* On narrow screens, let the comments/trash column wrap onto its own
+           full-width row below the item details, instead of squeezing the
+           details column (and the note text inside it) down to a sliver. */
+        @media (max-width: 560px) {
+          .entry-row { flex-wrap: wrap; }
+          .entry-details { flex-basis: 200px; }
+          .entry-actions { flex: 1 1 100%; margin-top: 4px; }
+        }
       `}</style>
 
       <div className="tradelist-container" style={{ maxWidth: 640, margin: "0 auto", padding: "36px 20px 60px" }}>
@@ -2666,7 +2675,7 @@ export default function DiscogsTradeList() {
                     size={52}
                     onClick={() => setImagePreview({ src: g.image_full || g.thumb, alt: g.title })}
                   />
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="entry-details" style={{ flex: 1, minWidth: 0 }}>
                     {g.url ? (
                       <a
                         href={g.url}
@@ -2977,8 +2986,11 @@ export default function DiscogsTradeList() {
                   </div>
                   {/* Comments hold the right-hand slot on both tabs, so the
                       thread opens in the same place wherever you are. Trash
-                      sits alongside it — same right-aligned slot per person. */}
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+                      sits alongside it — same right-aligned slot per person.
+                      On narrow screens this drops to its own full-width row
+                      (see .entry-actions media query) so the details column
+                      — and the note text inside it — isn't squeezed thin. */}
+                  <div className="entry-actions" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
                     {g.people.map((p) => {
                       const canModify = !!session && !!profile && (profile.is_admin || p.author_id === session.user.id);
                       return (
