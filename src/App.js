@@ -2996,7 +2996,7 @@ export default function DiscogsTradeList() {
                               title={`Remove ${p.name}'s item`}
                               aria-label={`Remove ${p.name}'s item`}
                               style={{
-                                border: "1px solid #3A302A",
+                                border: "1px solid #5b0909",
                                 background: "rgba(157,112,71,0.08)",
                                 color: "#e6705b",
                                 padding: 0,
