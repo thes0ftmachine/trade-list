@@ -2822,7 +2822,7 @@ export default function DiscogsTradeList() {
               cursor: "pointer",
             }}
           >
-            Back to the top!
+            ↑ Back to the top ↑
           </a>
         </div>
 
