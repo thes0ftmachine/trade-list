@@ -2803,6 +2803,29 @@ export default function DiscogsTradeList() {
           </div>
         )}
 
+        {/* Footer sign-off + back-to-top link */}
+        <div style={{ textAlign: "center", marginTop: 48, paddingTop: 24, borderTop: "1px solid #2A2A2A" }}>
+          <p style={{ color: "#9A9A9A", fontSize: 13.5, lineHeight: 1.6, margin: "0 0 14px" }}>
+            we hope you found something you wanted. be safe, smart, friendly, and most importantly, enjoy the music.
+          </p>
+          <a
+            href="#top"
+            onClick={(e) => {
+              e.preventDefault();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            style={{
+              color: "#eae135",
+              fontSize: 13.5,
+              fontWeight: 600,
+              textDecoration: "none",
+              cursor: "pointer",
+            }}
+          >
+            Back to the top!
+          </a>
+        </div>
+
       </div>
 
       {listModal && (
