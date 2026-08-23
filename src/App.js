@@ -2775,29 +2775,33 @@ export default function DiscogsTradeList() {
                                 </span>
                                 {/* Same pencil-next-to-value pattern as the notes edit button below. */}
                                 {canModify && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setConditionEditModal({ id: p.id, title: g.title, value: p.condition || "" })}
-                                    title={`Edit condition — ${p.condition}`}
-                                    aria-label={`Edit ${p.name}'s condition`}
-                                    style={{
-                                      border: "1px solid transparent",
-                                      background: "transparent",
-                                      color: "#eae135",
-                                      padding: 0,
-                                      width: 22,
-                                      height: 22,
-                                      borderRadius: 6,
-                                      cursor: "pointer",
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      flexShrink: 0,
-                                      marginTop: 1,
-                                    }}
-                                  >
-                                    <Pencil size={12} />
-                                  </button>
+                          <button
+                          type="button"
+                             onClick={() => setConditionEditModal({ id: p.id, title: g.title, value: p.condition || "" })}
+                             title={`Edit condition — ${p.condition}`}
+                             aria-label={`Edit ${p.name}'s condition`}
+                             style={{
+                                border: "1px solid transparent",
+                                background: "transparent",
+                                 color: "#eae135",
+                                 padding: "0 4px",
+                                   minHeight: 22,
+                                borderRadius: 6,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    flexShrink: 0,
+    marginTop: 1,
+    whiteSpace: "nowrap",
+  }}
+>
+<Pencil size={12} />
+<span style={{ fontSize: 10.5, letterSpacing: 0.2 }}>
+  Edit condition
+</span>
+</button>
                                 )}
                               </div>
                             );
