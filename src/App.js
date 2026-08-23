@@ -2783,7 +2783,7 @@ export default function DiscogsTradeList() {
                              style={{
                                 border: "1px solid transparent",
                                 background: "transparent",
-                                 color: "#eae135",
+                                 color: "#9D7047",
                                  padding: "0 4px",
                                    minHeight: 22,
                                 borderRadius: 6,
