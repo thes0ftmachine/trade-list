@@ -797,6 +797,9 @@ export default function DiscogsTradeList() {
   // edit-notes popup — { id, title, value } | null
   const [noteEditModal, setNoteEditModal] = useState(null);
 
+  // edit-condition popup (For Trade items only) — { id, title, value } | null
+  const [conditionEditModal, setConditionEditModal] = useState(null);
+
   // thumbnail lightbox — { src, alt } | null
   const [imagePreview, setImagePreview] = useState(null);
 
@@ -1429,7 +1432,13 @@ export default function DiscogsTradeList() {
       image_full: it.image_full || it.thumb || null,
       url: it.url,
       notes: it.discogsNotes || null,
-      condition: it.condition || null,
+      // Combine Discogs' separate media/sleeve grades into the single
+      // "Media/Sleeve" free-text convention used elsewhere in this app
+      // (see the CONDITION field placeholder: "e.g. VG+/VG+").
+      condition:
+        it.condition && it.sleeve_condition
+          ? `${it.condition}/${it.sleeve_condition}`
+          : it.condition || it.sleeve_condition || null,
       // Pulled from a Discogs seller listing, so it's for sale, not a trade
       // — sellers can still flip individual items to Trade/Both afterward.
       listing_type: "sale",
@@ -1558,6 +1567,25 @@ export default function DiscogsTradeList() {
     } catch (e) {
       setEntries(prev);
       showToast("Couldn't update note — try again");
+    }
+  };
+
+  const updateCondition = async (id, newCondition) => {
+    const target = entries.find((x) => x.id === id);
+    if (!target || (!profile?.is_admin && target.author_id !== session?.user?.id)) {
+      showToast("You can only edit your own items");
+      return;
+    }
+    const trimmed = (newCondition || "").trim() || null;
+    const prev = entries;
+    setEntries((e) => e.map((x) => (x.id === id ? { ...x, condition: trimmed } : x)));
+    try {
+      const { error } = await supabase.from(TABLE).update({ condition: trimmed }).eq("id", id);
+      if (error) throw error;
+      showToast("Condition updated", true);
+    } catch (e) {
+      setEntries(prev);
+      showToast("Couldn't update condition — try again");
     }
   };
 
@@ -2722,26 +2750,99 @@ export default function DiscogsTradeList() {
                       >
                         {g.people
                           .filter((p) => p.condition)
-                          .map((p) => (
-                            <div
-                              key={`condition-${p.id}`}
-                              style={{
-                                fontSize: 11.5,
-                                color: "#D8D3CC",
-                                lineHeight: 1.4,
-                              }}
-                            >
-                              <span className="mono" style={{ color: "#CEAE73", fontSize: 10.5 }}>
-                                CONDITION
-                                {g.people.length > 1 ? ` · ${p.name}` : ""}
-                              </span>
-                              <div style={{ marginTop: 2 }}>
-                                {p.condition}
+                          .map((p) => {
+                            const canModify = !!session && !!profile && (profile.is_admin || p.author_id === session.user.id);
+                            return (
+                              <div
+                                key={`condition-${p.id}`}
+                                style={{
+                                  fontSize: 11.5,
+                                  color: "#D8D3CC",
+                                  lineHeight: 1.4,
+                                  display: "flex",
+                                  alignItems: "flex-start",
+                                  gap: 5,
+                                }}
+                              >
+                                <span style={{ flex: 1, minWidth: 0 }}>
+                                  <span className="mono" style={{ color: "#CEAE73", fontSize: 10.5 }}>
+                                    CONDITION
+                                    {g.people.length > 1 ? ` · ${p.name}` : ""}
+                                  </span>
+                                  <div style={{ marginTop: 2 }}>
+                                    {p.condition}
+                                  </div>
+                                </span>
+                                {/* Same pencil-next-to-value pattern as the notes edit button below. */}
+                                {canModify && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setConditionEditModal({ id: p.id, title: g.title, value: p.condition || "" })}
+                                    title={`Edit condition — ${p.condition}`}
+                                    aria-label={`Edit ${p.name}'s condition`}
+                                    style={{
+                                      border: "1px solid transparent",
+                                      background: "transparent",
+                                      color: "#eae135",
+                                      padding: 0,
+                                      width: 22,
+                                      height: 22,
+                                      borderRadius: 6,
+                                      cursor: "pointer",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      flexShrink: 0,
+                                      marginTop: 1,
+                                    }}
+                                  >
+                                    <Pencil size={12} />
+                                  </button>
+                                )}
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                       </div>
                     )}
+                    {listType === "trade" &&
+                      g.people.some(
+                        (p) =>
+                          !p.condition &&
+                          !!session &&
+                          !!profile &&
+                          (profile.is_admin || p.author_id === session.user.id)
+                      ) && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 7 }}>
+                          {g.people
+                            .filter(
+                              (p) =>
+                                !p.condition &&
+                                !!session &&
+                                !!profile &&
+                                (profile.is_admin || p.author_id === session.user.id)
+                            )
+                            .map((p) => (
+                              <button
+                                key={`add-condition-${p.id}`}
+                                type="button"
+                                onClick={() => setConditionEditModal({ id: p.id, title: g.title, value: "" })}
+                                className="mono"
+                                style={{
+                                  alignSelf: "flex-start",
+                                  border: "none",
+                                  background: "transparent",
+                                  color: "#6B6B6B",
+                                  fontSize: 10.5,
+                                  padding: 0,
+                                  cursor: "pointer",
+                                  textDecoration: "underline",
+                                }}
+                              >
+                                + Add condition{g.people.length > 1 ? ` (${p.name})` : ""}
+                              </button>
+                            ))}
+                        </div>
+                      )}
                     {g.people.some((p) => p.notes) && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 7 }}>
                         {g.people
@@ -4023,6 +4124,104 @@ export default function DiscogsTradeList() {
               <button
                 type="button"
                 onClick={() => setNoteEditModal(null)}
+                className="mono"
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: "1px solid #2A2A2A",
+                  background: "transparent",
+                  color: "#9A9A9A",
+                  fontSize: 12.5,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {conditionEditModal && (
+        <div
+          onClick={() => setConditionEditModal(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 380,
+              background: "#121212",
+              border: "1px solid #2A2A2A",
+              borderRadius: 12,
+              padding: 20,
+              boxSizing: "border-box",
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC", marginBottom: 4 }}>
+              {conditionEditModal.title}
+            </div>
+            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 12 }}>
+              Edit condition
+            </p>
+            <p style={{ fontSize: 11.5, color: "#6B6B6B", margin: "0 0 8px", lineHeight: 1.4 }}>
+              Use vinyl/cover with listing condition, and add as much detail as you'd like.
+            </p>
+
+            <input
+              value={conditionEditModal.value}
+              onChange={(e) => setConditionEditModal({ ...conditionEditModal, value: e.target.value })}
+              placeholder="e.g. VG+/VG+, light shelf wear, plays clean"
+              autoFocus
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #2A2A2A",
+                background: "#000000",
+                color: "#F5F0EC",
+                fontSize: 14,
+                boxSizing: "border-box",
+                outline: "none",
+                fontFamily: "'Barlow', sans-serif",
+                marginBottom: 14,
+              }}
+            />
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={async () => {
+                  await updateCondition(conditionEditModal.id, conditionEditModal.value);
+                  setConditionEditModal(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#9D7047",
+                  color: "#F5F0EC",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setConditionEditModal(null)}
                 className="mono"
                 style={{
                   padding: "10px 16px",
