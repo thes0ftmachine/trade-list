@@ -743,6 +743,17 @@ export default function DiscogsTradeList() {
   const [discogsConfirmOpen, setDiscogsConfirmOpen] = useState(false);
   const [discogsAdding, setDiscogsAdding] = useState(false);
 
+  // Discogs inventory import — For Trade tab only. Pulls the user's
+  // public "For Sale" Discogs listings (no OAuth needed — the inventory
+  // endpoint only ever returns For Sale items to a non-owner caller).
+  const [discogsInvUsername, setDiscogsInvUsername] = useState("");
+  const [discogsInvImporting, setDiscogsInvImporting] = useState(false);
+  const [discogsInvImportError, setDiscogsInvImportError] = useState(null);
+  const [discogsInvItems, setDiscogsInvItems] = useState(null);
+  const [discogsInvSelected, setDiscogsInvSelected] = useState({});
+  const [discogsInvConfirmOpen, setDiscogsInvConfirmOpen] = useState(false);
+  const [discogsInvAdding, setDiscogsInvAdding] = useState(false);
+
   const [entries, setEntries] = useState([]);
   const [loadingEntries, setLoadingEntries] = useState(true);
   const [view, setView] = useState("byItem"); // byItem | add
@@ -1330,6 +1341,123 @@ export default function DiscogsTradeList() {
     }
   };
 
+  // --- Discogs inventory explore/import (For Trade tab only) ---
+  const fetchDiscogsInventory = async () => {
+    const username = discogsInvUsername.trim();
+    if (!username) return;
+    setDiscogsInvImporting(true);
+    setDiscogsInvImportError(null);
+    setDiscogsInvItems(null);
+    setDiscogsInvSelected({});
+    try {
+      const res = await fetch(`/api/discogs-inventory?username=${encodeURIComponent(username)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setDiscogsInvImportError(data.error || "Couldn't load that inventory.");
+        return;
+      }
+      if (!data.items || data.items.length === 0) {
+        setDiscogsInvImportError(`${username} doesn't have any "For Sale" Discogs listings.`);
+        return;
+      }
+      // Nothing pre-checked, same reasoning as the wantlist import — an
+      // inventory can be large and adding it all by accident is easy to do.
+      setDiscogsInvItems(data.items);
+      setDiscogsInvSelected({});
+    } catch (e) {
+      setDiscogsInvImportError("Couldn't reach Discogs — try again.");
+    } finally {
+      setDiscogsInvImporting(false);
+    }
+  };
+
+  const toggleDiscogsInvItem = (id) => setDiscogsInvSelected((s) => ({ ...s, [id]: !s[id] }));
+
+  const cancelDiscogsInvImport = () => {
+    setDiscogsInvItems(null);
+    setDiscogsInvSelected({});
+    setDiscogsInvImportError(null);
+  };
+
+  const requestDiscogsInvImport = () => {
+    if (!discogsInvItems) return;
+    if (!name.trim()) {
+      showToast("Add your name first");
+      return;
+    }
+    const chosen = discogsInvItems.filter((it) => discogsInvSelected[it.id]);
+    if (chosen.length === 0) {
+      showToast("Select at least one item first");
+      return;
+    }
+    setDiscogsInvConfirmOpen(true);
+  };
+
+  const confirmDiscogsInvImport = async () => {
+    if (!discogsInvItems) return;
+    if (!session?.user?.id || !profile?.display_name) {
+      showToast("Sign in above to import your inventory");
+      setDiscogsInvConfirmOpen(false);
+      return;
+    }
+    const finalName = name.trim();
+    if (!finalName) {
+      showToast("Add your name first");
+      setDiscogsInvConfirmOpen(false);
+      return;
+    }
+    const chosen = discogsInvItems.filter((it) => discogsInvSelected[it.id]);
+    if (chosen.length === 0) {
+      setDiscogsInvConfirmOpen(false);
+      return;
+    }
+    // Same skip-duplicates-and-report approach as the wantlist bulk import.
+    const fresh = chosen.filter((it) => !isDuplicate(finalName, it.title, "trade"));
+    if (fresh.length === 0) {
+      showToast("All selected items are already on the list");
+      setDiscogsInvConfirmOpen(false);
+      return;
+    }
+    setDiscogsInvAdding(true);
+    const newEntries = fresh.map((it) => ({
+      id: newId(),
+      author_id: session.user.id,
+      type: "trade",
+      name: finalName,
+      title: it.title,
+      thumb: it.thumb,
+      image_full: it.image_full || it.thumb || null,
+      url: it.url,
+      notes: it.discogsNotes || null,
+      condition: it.condition || null,
+      // Pulled from a Discogs seller listing, so it's for sale, not a trade
+      // — sellers can still flip individual items to Trade/Both afterward.
+      listing_type: "sale",
+      price: it.price != null ? parsePrice(it.price) : null,
+      genre: deriveGenre(it),
+      format: deriveFormat(it),
+    }));
+    try {
+      const { error } = await supabase.from(TABLE).insert(newEntries);
+      if (error) throw error;
+      const now = new Date().toISOString();
+      setEntries((prev) => [...newEntries.map((e) => ({ ...e, addedAt: now })), ...prev]);
+      const skipped = chosen.length - fresh.length;
+      showToast(
+        `Added ${fresh.length} item${fresh.length !== 1 ? "s" : ""} for ${finalName}` +
+          (skipped ? ` (${skipped} already on the list, skipped)` : ""),
+        true
+      );
+      cancelDiscogsInvImport();
+      setDiscogsInvUsername("");
+    } catch (e) {
+      showToast("Couldn't save those items — try again");
+    } finally {
+      setDiscogsInvAdding(false);
+      setDiscogsInvConfirmOpen(false);
+    }
+  };
+
   const setUnwanted = async (id, unwanted) => {
     const target = entries.find((x) => x.id === id);
     if (!target || (!profile?.is_admin && target.author_id !== session?.user?.id)) {
@@ -1557,6 +1685,9 @@ export default function DiscogsTradeList() {
 
   const discogsSelectedCount = discogsWantItems
     ? discogsWantItems.filter((it) => discogsSelected[it.id]).length
+    : 0;
+  const discogsInvSelectedCount = discogsInvItems
+    ? discogsInvItems.filter((it) => discogsInvSelected[it.id]).length
     : 0;
 
   const tabs = [
@@ -2114,6 +2245,203 @@ export default function DiscogsTradeList() {
                       <button
                         type="button"
                         onClick={cancelDiscogsImport}
+                        style={{
+                          padding: "8px 16px",
+                          borderRadius: 7,
+                          border: "1px solid #2A2A2A",
+                          background: "transparent",
+                          color: "#9A9A9A",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {listType === "trade" && (
+              <div style={{ marginTop: 8 }}>
+                <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+                  OR ADD FROM YOUR DISCOGS INVENTORY (FOR SALE)
+                </label>
+                <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                  <input
+                    value={discogsInvUsername}
+                    onChange={(e) => setDiscogsInvUsername(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") fetchDiscogsInventory();
+                    }}
+                    placeholder="Discogs username"
+                    style={{
+                      flex: 1,
+                      padding: "9px 10px",
+                      borderRadius: 7,
+                      border: "1px solid #2A2A2A",
+                      background: "#121212",
+                      color: "#F5F0EC",
+                      fontSize: 14,
+                      boxSizing: "border-box",
+                      outline: "none",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fetchDiscogsInventory()}
+                    disabled={discogsInvImporting || !discogsInvUsername.trim()}
+                    style={{
+                      padding: "0 16px",
+                      borderRadius: 7,
+                      border: "none",
+                      background: discogsInvUsername.trim() ? "#9D7047" : "#3A3A3A",
+                      color: discogsInvUsername.trim() ? "#F5F0EC" : "#6B6B6B",
+                      fontWeight: 600,
+                      fontSize: 13.5,
+                      cursor: discogsInvUsername.trim() ? "pointer" : "not-allowed",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    {discogsInvImporting ? <RefreshCw size={14} className="spin" /> : "Explore"}
+                  </button>
+                </div>
+                <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", margin: "0 0 10px 2px" }}>
+                  Pulls your public "For Sale" Discogs listings and lets you pick which to add. Nothing is added automatically. Private inventories aren't supported.
+                </p>
+
+                {discogsInvImportError && (
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      background: "#1A0E0F",
+                      border: "1px solid #7A0E12",
+                      borderRadius: 8,
+                      padding: "10px 12px",
+                      fontSize: 13,
+                      color: "#E8B7B7",
+                      marginBottom: 10,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <span>{discogsInvImportError}</span>
+                  </div>
+                )}
+
+                {discogsInvItems && (
+                  <div
+                    style={{
+                      background: "#121212",
+                      border: "1px solid #2A2A2A",
+                      borderRadius: 10,
+                      padding: 14,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                      <ListMusic size={16} color="#9D7047" />
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: "#F5F0EC" }}>
+                        {discogsInvItems.length} item{discogsInvItems.length !== 1 ? "s" : ""} found — pick what to add
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 14, marginBottom: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => setDiscogsSelected(Object.fromEntries(discogsInvItems.map((it) => [it.id, true])))}
+                        style={{ background: "none", border: "none", color: "#9A9A9A", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                      >
+                        Select all
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDiscogsInvSelected({})}
+                        style={{ background: "none", border: "none", color: "#9A9A9A", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                      >
+                        Select none
+                      </button>
+                      <span className="mono" style={{ fontSize: 11, color: "#6B6B6B", marginLeft: "auto" }}>
+                        {discogsInvSelectedCount} selected
+                      </span>
+                    </div>
+
+                    <div style={{ maxHeight: 320, overflowY: "auto", marginBottom: 12 }}>
+                      {discogsInvItems.map((it) => {
+                        const checked = !!discogsInvSelected[it.id];
+                        const dup = isDuplicate(name, it.title, "trade");
+                        const itemFormat = deriveFormat(it);
+                        return (
+                          <label
+                            key={it.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              padding: "7px 2px",
+                              borderBottom: "1px solid #1E1E1E",
+                              cursor: "pointer",
+                              opacity: dup ? 0.55 : 1,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleDiscogsInvItem(it.id)}
+                              style={{ flexShrink: 0, width: 16, height: 16, accentColor: "#9D7047" }}
+                            />
+                            <RecordThumb src={it.thumb} alt={it.title} size={36} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  color: "#F5F0EC",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {it.title}
+                              </div>
+                              <div className="mono" style={{ fontSize: 10.5, color: "#9A9A9A" }}>
+                                {it.year || ""} {itemFormat ? `· ${itemFormat}` : ""} {dup ? "· already on the list" : ""}
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={requestDiscogsInvImport}
+                        disabled={discogsInvAdding || discogsInvSelectedCount === 0}
+                        title={!name.trim() ? "Add your name first" : discogsInvSelectedCount === 0 ? "Select at least one item" : undefined}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "8px 16px",
+                          borderRadius: 7,
+                          border: "none",
+                          background: discogsInvSelectedCount > 0 ? "#9D7047" : "#3A3A3A",
+                          color: discogsInvSelectedCount > 0 ? "#F5F0EC" : "#6B6B6B",
+                          fontWeight: 600,
+                          fontSize: 13,
+                          cursor: discogsInvAdding || discogsInvSelectedCount === 0 ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {discogsInvAdding ? <RefreshCw size={14} className="spin" /> : <CheckCircle2 size={14} />}
+                        Add selected
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelDiscogsInvImport}
                         style={{
                           padding: "8px 16px",
                           borderRadius: 7,
@@ -3787,6 +4115,89 @@ export default function DiscogsTradeList() {
                   fontWeight: 600,
                   fontSize: 13.5,
                   cursor: discogsAdding ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {discogsInvConfirmOpen && (
+        <div
+          onClick={() => !discogsInvAdding && setDiscogsInvConfirmOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 360,
+              background: "#121212",
+              border: "1px solid #2A2A2A",
+              borderRadius: 12,
+              padding: 20,
+              boxSizing: "border-box",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <ListMusic size={18} color="#9D7047" />
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#F5F0EC" }}>
+                Add {discogsInvSelectedCount} item{discogsInvSelectedCount !== 1 ? "s" : ""}?
+              </div>
+            </div>
+            <p style={{ fontSize: 13.5, color: "#D8D3CC", lineHeight: 1.5, margin: "0 0 18px" }}>
+              This adds {discogsInvSelectedCount} item{discogsInvSelectedCount !== 1 ? "s" : ""} from{" "}
+              {discogsInvUsername.trim()}'s Discogs inventory to the For Trade list, under{" "}
+              <strong style={{ color: "#F5F0EC" }}>{name.trim()}</strong>.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={confirmDiscogsInvImport}
+                disabled={discogsInvAdding}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#9D7047",
+                  color: "#F5F0EC",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: discogsInvAdding ? "not-allowed" : "pointer",
+                }}
+              >
+                {discogsInvAdding ? <RefreshCw size={14} className="spin" /> : <CheckCircle2 size={14} />}
+                Yes, add them
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiscogsInvConfirmOpen(false)}
+                disabled={discogsInvAdding}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: "1px solid #2A2A2A",
+                  background: "transparent",
+                  color: "#9A9A9A",
+                  fontWeight: 600,
+                  fontSize: 13.5,
+                  cursor: discogsInvAdding ? "not-allowed" : "pointer",
                 }}
               >
                 Cancel
