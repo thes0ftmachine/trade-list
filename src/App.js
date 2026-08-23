@@ -2783,7 +2783,7 @@ export default function DiscogsTradeList() {
                              style={{
                                 border: "1px solid transparent",
                                 background: "transparent",
-                                 color: "#9D7047",
+                                 color: "#CEAE64",
                                  padding: "0 4px",
                                    minHeight: 22,
                                 borderRadius: 6,
@@ -2879,28 +2879,32 @@ export default function DiscogsTradeList() {
                                     rather than off in the chips row below. */}
                                 {canModify && (
                                   <button
-                                    type="button"
-                                    onClick={() => setNoteEditModal({ id: p.id, title: g.title, value: p.notes || "" })}
-                                    title={`Edit note — ${p.notes}`}
-                                    aria-label={`Edit ${p.name}'s note`}
-                                    style={{
-                                      border: "1px solid transparent",
-                                      background: "transparent",
-                                      color: "#eae135",
-                                      padding: 0,
-                                      width: 22,
-                                      height: 22,
-                                      borderRadius: 6,
-                                      cursor: "pointer",
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      flexShrink: 0,
-                                      marginTop: 1,
-                                    }}
-                                  >
-                                    <Pencil size={12} />
-                                  </button>
+  type="button"
+  onClick={() => setNoteEditModal({ id: p.id, title: g.title, value: p.notes || "" })}
+  title={`Edit note — ${p.notes}`}
+  aria-label={`Edit ${p.name}'s note`}
+  style={{
+    border: "1px solid transparent",
+    background: "transparent",
+    color: "#dad7a6",
+    padding: "0 4px",
+    minHeight: 22,
+    borderRadius: 6,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    flexShrink: 0,
+    marginTop: 1,
+    whiteSpace: "nowrap",
+  }}
+>
+  <Pencil size={12} />
+  <span style={{ fontSize: 10.5, letterSpacing: 0.2 }}>
+    Edit note
+  </span>
+</button>
                                 )}
                               </div>
                             );
