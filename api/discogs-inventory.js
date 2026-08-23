@@ -1,15 +1,17 @@
 // api/discogs-inventory.js
-// Vercel serverless function: fetches a Discogs user's "For Sale" inventory,
-// paginating through all pages, and returns a flat array of listings.
+// Vercel serverless function: fetches a Discogs user's "For Sale" inventory
+// (their seller listings), paginating through all pages, and returns items
+// shaped the same way /api/discogs-wantlist does — so the same
+// deriveGenre/deriveFormat/isDuplicate helpers in App.js work unchanged.
 //
-// Usage: GET /api/discogs-inventory?username=someseller
+// GET /api/discogs-inventory?username=someseller
 //
-// Env vars required (set in Vercel project settings):
-//   DISCOGS_TOKEN        - your Discogs personal access token (server-side only)
-//   DISCOGS_USER_AGENT   - e.g. "VolverRecordsTradeList/1.0 +https://yourdomain.com"
+// Env vars (same ones discogs-wantlist.js already uses):
+//   DISCOGS_TOKEN
+//   DISCOGS_USER_AGENT
 
 const DISCOGS_BASE = "https://api.discogs.com";
-const PER_PAGE = 100; // Discogs max per_page
+const PER_PAGE = 100;
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -17,25 +19,28 @@ export default async function handler(req, res) {
   }
 
   const { username } = req.query;
-  if (!username || typeof username !== "string") {
+  if (!username || typeof username !== "string" || !username.trim()) {
     return res.status(400).json({ error: "Missing 'username' query param" });
   }
 
   const token = process.env.DISCOGS_TOKEN;
-  const userAgent = process.env.DISCOGS_USER_AGENT || "TradeListApp/1.0";
+  const userAgent = process.env.DISCOGS_USER_AGENT || "VolverTradeList/1.0";
 
   if (!token) {
     return res.status(500).json({ error: "Server misconfigured: missing DISCOGS_TOKEN" });
   }
 
   try {
-    const allListings = [];
+    const items = [];
     let page = 1;
     let totalPages = 1;
 
     do {
-      const url = new URL(`${DISCOGS_BASE}/users/${encodeURIComponent(username)}/inventory`);
-      url.searchParams.set("status", "For Sale"); // unauthenticated/non-owner view only ever returns For Sale anyway
+      const url = new URL(`${DISCOGS_BASE}/users/${encodeURIComponent(username.trim())}/inventory`);
+      // Not authenticated as the inventory's owner, so Discogs only ever
+      // returns "For Sale" listings here regardless of this param — set it
+      // explicitly anyway for clarity.
+      url.searchParams.set("status", "For Sale");
       url.searchParams.set("page", String(page));
       url.searchParams.set("per_page", String(PER_PAGE));
       url.searchParams.set("sort", "listed");
@@ -49,48 +54,42 @@ export default async function handler(req, res) {
       });
 
       if (!response.ok) {
-        // If the username doesn't exist or has no public inventory, Discogs returns 404/403
-        const errText = await response.text();
-        return res.status(response.status).json({
-          error: `Discogs API error (${response.status})`,
-          detail: errText,
-        });
+        if (response.status === 404) {
+          return res.status(404).json({ error: `No Discogs user named "${username}"` });
+        }
+        const detail = await response.text();
+        return res.status(response.status).json({ error: "Discogs API error", detail });
       }
 
       const data = await response.json();
-
       totalPages = data?.pagination?.pages ?? 1;
 
-      const mapped = (data.listings || []).map((listing) => ({
-        discogs_listing_id: listing.id,
-        discogs_release_id: listing.release?.id ?? null,
-        title: listing.release?.title ?? "",
-        artist: listing.release?.artist ?? "",
-        format: Array.isArray(listing.release?.format)
-          ? listing.release.format.join(", ")
-          : listing.release?.format ?? "",
-        condition: listing.condition ?? null,
-        sleeve_condition: listing.sleeve_condition ?? null,
-        price: listing.price?.value ?? null,
-        currency: listing.price?.currency ?? null,
-        comments: listing.comments ?? "",
-        // Note: the inventory list endpoint returns a small thumb; for a full-size
-        // image you'd need a second call to the release detail endpoint, same
-        // two-step pattern used elsewhere in the want-list app.
-        thumb_url: listing.release?.thumbnail ?? null,
-        listed_at: listing.listed ?? null,
-        source: "discogs_inventory",
-      }));
+      for (const listing of data.listings || []) {
+        const release = listing.release || {};
+        items.push({
+          // Prefix so a listing id can never collide with a wantlist item's
+          // release id in React key / selection maps.
+          id: `inv-${listing.id}`,
+          title: release.title || "",
+          thumb: release.thumbnail || null,
+          image_full: release.thumbnail || null,
+          url: listing.uri || (release.id ? `https://www.discogs.com/release/${release.id}` : null),
+          year: release.year || null,
+          format: release.format || null, // array, same shape deriveFormat() expects
+          genre: null, // the inventory endpoint doesn't return genre/style — deriveGenre() falls back to style below
+          style: null,
+          discogsNotes: listing.comments || null,
+          condition: listing.condition || null,
+          sleeve_condition: listing.sleeve_condition || null,
+          price: listing.price?.value != null ? String(listing.price.value) : null,
+          currency: listing.price?.currency || null,
+        });
+      }
 
-      allListings.push(...mapped);
       page += 1;
     } while (page <= totalPages);
 
-    return res.status(200).json({
-      username,
-      count: allListings.length,
-      listings: allListings,
-    });
+    return res.status(200).json({ username: username.trim(), items });
   } catch (err) {
     console.error("discogs-inventory error:", err);
     return res.status(500).json({ error: "Failed to fetch Discogs inventory" });
