@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect, useCallback } from "react";
-import { Search, Disc3, User, Plus, X, Trash2, RefreshCw, ListMusic, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag, AtSign, Link2 } from "lucide-react";
+import { Search, Disc3, User, Plus, X, Trash2, RefreshCw, ListMusic, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag, AtSign } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { Analytics } from "@vercel/analytics/react";
 
@@ -13,7 +13,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const TABLE = "tradelist";
 
 const PROFILE_COLUMNS =
-  "id, email, display_name, is_admin, created_at, bio, avatar_url, discogs_username, instagram, facebook, willing_to_ship, shipping_cost, favorite_genres";
+  "id, email, display_name, is_admin, created_at, bio, avatar_url, discogs_username, instagram, willing_to_ship, shipping_cost, favorite_genres";
 
 // Row ids are generated client-side. crypto.randomUUID needs a secure context
 // (https or localhost) and is missing on Safari < 15.4, so fall back to a
@@ -24,8 +24,8 @@ const newId = () =>
 // status states for items currently up For Trade — n/a for In Search Of items
 const STATUS_CONFIG = {
   available: { label: "Available", icon: CheckCircle2, color: "#8FE3C1" },
-  claimed: { label: "Claimed", icon: Package, color: "#708BE4" },
-  traded: { label: "Traded", icon: Truck, color: "#403652" },
+  claimed: { label: "Claimed", icon: Package, color: "#d198e1" },
+  traded: { label: "Traded", icon: Truck, color: "#9b89bd" },
 };
 
 // Pending was folded into Claimed — kept as a distinct state but no workflow
@@ -745,7 +745,6 @@ export default function DiscogsTradeList() {
   const [profileAvatarUrl, setProfileAvatarUrl] = useState("");
   const [profileDiscogsUsername, setProfileDiscogsUsername] = useState("");
   const [profileInstagram, setProfileInstagram] = useState("");
-  const [profileFacebook, setProfileFacebook] = useState("");
   const [profileWillingToShip, setProfileWillingToShip] = useState(false);
   const [profileShippingCost, setProfileShippingCost] = useState("");
   const [profileFavoriteGenres, setProfileFavoriteGenres] = useState("");
@@ -971,7 +970,6 @@ export default function DiscogsTradeList() {
     setProfileAvatarUrl(profile?.avatar_url || "");
     setProfileDiscogsUsername(profile?.discogs_username || "");
     setProfileInstagram(profile?.instagram || "");
-    setProfileFacebook(profile?.facebook || "");
     setProfileWillingToShip(!!profile?.willing_to_ship);
     setProfileShippingCost(profile?.shipping_cost || "");
     setProfileFavoriteGenres(profile?.favorite_genres || "");
@@ -989,7 +987,6 @@ export default function DiscogsTradeList() {
       avatar_url: profileAvatarUrl.trim() || null,
       discogs_username: profileDiscogsUsername.trim() || null,
       instagram: profileInstagram.trim() || null,
-      facebook: profileFacebook.trim() || null,
       willing_to_ship: profileWillingToShip,
       shipping_cost: profileShippingCost.trim() || null,
       favorite_genres: profileFavoriteGenres.trim() || null,
@@ -4300,27 +4297,16 @@ export default function DiscogsTradeList() {
 
             {/* Socials */}
             <label className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", display: "block", marginBottom: 5 }}>
-              SOCIALS
+              INSTAGRAM
             </label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <AtSign size={14} color="#6B6B6B" style={{ flexShrink: 0 }} />
-                <input
-                  value={profileInstagram}
-                  onChange={(e) => setProfileInstagram(e.target.value)}
-                  placeholder="Instagram handle"
-                  style={{ flex: 1, minWidth: 0, padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", boxSizing: "border-box" }}
-                />
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <Link2 size={14} color="#6B6B6B" style={{ flexShrink: 0 }} />
-                <input
-                  value={profileFacebook}
-                  onChange={(e) => setProfileFacebook(e.target.value)}
-                  placeholder="Facebook name or link"
-                  style={{ flex: 1, minWidth: 0, padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", boxSizing: "border-box" }}
-                />
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 14 }}>
+              <AtSign size={14} color="#6B6B6B" style={{ flexShrink: 0 }} />
+              <input
+                value={profileInstagram}
+                onChange={(e) => setProfileInstagram(e.target.value)}
+                placeholder="username (no @ or link needed)"
+                style={{ flex: 1, minWidth: 0, padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+              />
             </div>
 
             {/* Shipping */}
@@ -4470,7 +4456,7 @@ export default function DiscogsTradeList() {
                         </div>
                       </div>
 
-                      {(viewed.discogs_username || viewed.instagram || viewed.facebook) && (
+                      {(viewed.discogs_username || viewed.instagram) && (
                         <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 12, paddingTop: 12, borderTop: "1px solid #2A2A2A" }}>
                           {viewed.discogs_username && (
                             <a
@@ -4484,14 +4470,15 @@ export default function DiscogsTradeList() {
                             </a>
                           )}
                           {viewed.instagram && (
-                            <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#D8D3CC" }}>
-                              <AtSign size={13} color="#6B6B6B" /> {viewed.instagram}
-                            </span>
-                          )}
-                          {viewed.facebook && (
-                            <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#D8D3CC" }}>
-                              <Link2 size={13} color="#6B6B6B" /> {viewed.facebook}
-                            </span>
+                            <a
+                              href={`https://www.instagram.com/${encodeURIComponent(viewed.instagram.replace(/^@/, ""))}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mono"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#9D7047", textDecoration: "none" }}
+                            >
+                              <AtSign size={13} /> {viewed.instagram}
+                            </a>
                           )}
                         </div>
                       )}
