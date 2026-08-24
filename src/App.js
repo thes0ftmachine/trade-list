@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect, useCallback } from "react";
-import { Search, Disc3, User, Plus, X, Trash2, RefreshCw, ListMusic, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag } from "lucide-react";
+import { Search, Disc3, User, Plus, X, Trash2, RefreshCw, ListMusic, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag, Instagram, Facebook } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { Analytics } from "@vercel/analytics/react";
 
@@ -12,6 +12,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const TABLE = "tradelist";
 
+const PROFILE_COLUMNS =
+  "id, email, display_name, is_admin, created_at, bio, avatar_url, discogs_username, instagram, facebook, willing_to_ship, shipping_cost, favorite_genres";
+
 // Row ids are generated client-side. crypto.randomUUID needs a secure context
 // (https or localhost) and is missing on Safari < 15.4, so fall back to a
 // timestamp + random suffix there.
@@ -21,8 +24,8 @@ const newId = () =>
 // status states for items currently up For Trade — n/a for In Search Of items
 const STATUS_CONFIG = {
   available: { label: "Available", icon: CheckCircle2, color: "#8FE3C1" },
-  claimed: { label: "Claimed", icon: Package, color: "#da70e4" },
-  traded: { label: "Traded", icon: Truck, color: "#8d68d0" },
+  claimed: { label: "Claimed", icon: Package, color: "#d198e1" },
+  traded: { label: "Traded", icon: Truck, color: "#9b89bd" },
 };
 
 // Pending was folded into Claimed — kept as a distinct state but no workflow
@@ -733,6 +736,29 @@ export default function DiscogsTradeList() {
   const [profileName, setProfileName] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
   const name = profile?.display_name || "";
+
+  // Profile details modal — bio/socials/shipping/genres/photo, opened from
+  // the button next to Sign out. Local fields are seeded from `profile`
+  // when the modal opens and saved together on submit.
+  const [profileEditOpen, setProfileEditOpen] = useState(false);
+  const [profileBio, setProfileBio] = useState("");
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState("");
+  const [profileDiscogsUsername, setProfileDiscogsUsername] = useState("");
+  const [profileInstagram, setProfileInstagram] = useState("");
+  const [profileFacebook, setProfileFacebook] = useState("");
+  const [profileWillingToShip, setProfileWillingToShip] = useState(false);
+  const [profileShippingCost, setProfileShippingCost] = useState("");
+  const [profileFavoriteGenres, setProfileFavoriteGenres] = useState("");
+  const [avatarImporting, setAvatarImporting] = useState(false);
+  const [avatarImportError, setAvatarImportError] = useState(null);
+
+  // Read-only profile view — opened by clicking a person's name next to
+  // their listing. Fetched on demand and cached by author id so re-clicking
+  // the same person doesn't hit Supabase again.
+  const [profileViewModal, setProfileViewModal] = useState(null); // { authorId, name } | null
+  const [viewedProfiles, setViewedProfiles] = useState({});
+  const [profileViewLoading, setProfileViewLoading] = useState(false);
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -873,7 +899,7 @@ export default function DiscogsTradeList() {
       setAuthError(null);
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, email, display_name, is_admin, created_at")
+        .select(PROFILE_COLUMNS)
         .eq("id", session.user.id)
         .maybeSingle();
       if (cancelled) return;
@@ -927,7 +953,7 @@ export default function DiscogsTradeList() {
     const { data, error } = await supabase
       .from("profiles")
       .upsert(nextProfile, { onConflict: "id" })
-      .select("id, email, display_name, is_admin, created_at")
+      .select(PROFILE_COLUMNS)
       .single();
     if (error) {
       setAuthError(error.message || "Couldn't save your profile.");
@@ -936,6 +962,97 @@ export default function DiscogsTradeList() {
       setProfileName(data.display_name);
     }
     setProfileSaving(false);
+  };
+
+  // Seeds the details modal from whatever's currently saved, so reopening
+  // it never shows stale/blank fields for values already set.
+  const openProfileEdit = () => {
+    setProfileBio(profile?.bio || "");
+    setProfileAvatarUrl(profile?.avatar_url || "");
+    setProfileDiscogsUsername(profile?.discogs_username || "");
+    setProfileInstagram(profile?.instagram || "");
+    setProfileFacebook(profile?.facebook || "");
+    setProfileWillingToShip(!!profile?.willing_to_ship);
+    setProfileShippingCost(profile?.shipping_cost || "");
+    setProfileFavoriteGenres(profile?.favorite_genres || "");
+    setAvatarImportError(null);
+    setAuthError(null);
+    setProfileEditOpen(true);
+  };
+
+  const saveProfileDetails = async () => {
+    if (!session?.user?.id) return;
+    setProfileSaving(true);
+    setAuthError(null);
+    const updates = {
+      bio: profileBio.trim() || null,
+      avatar_url: profileAvatarUrl.trim() || null,
+      discogs_username: profileDiscogsUsername.trim() || null,
+      instagram: profileInstagram.trim() || null,
+      facebook: profileFacebook.trim() || null,
+      willing_to_ship: profileWillingToShip,
+      shipping_cost: profileShippingCost.trim() || null,
+      favorite_genres: profileFavoriteGenres.trim() || null,
+    };
+    const { data, error } = await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("id", session.user.id)
+      .select(PROFILE_COLUMNS)
+      .single();
+    if (error) {
+      setAuthError(error.message || "Couldn't save your profile.");
+    } else {
+      setProfile(data);
+      // Anyone with this profile cached from the view modal is now stale.
+      setViewedProfiles((v) => (v[data.id] ? { ...v, [data.id]: data } : v));
+      setProfileEditOpen(false);
+    }
+    setProfileSaving(false);
+  };
+
+  // Pulls the public avatar off a Discogs profile via our own /api proxy —
+  // same pattern as the wantlist/inventory import, so no Discogs auth is
+  // needed and no key is exposed client-side.
+  const importDiscogsAvatar = async () => {
+    const username = profileDiscogsUsername.trim();
+    if (!username) {
+      setAvatarImportError("Enter a Discogs username first.");
+      return;
+    }
+    setAvatarImporting(true);
+    setAvatarImportError(null);
+    try {
+      const res = await fetch(`/api/discogs-profile?username=${encodeURIComponent(username)}`);
+      const data = await res.json();
+      if (!res.ok || !data.avatar_url) {
+        setAvatarImportError(data.error || `Couldn't find a Discogs photo for "${username}".`);
+        return;
+      }
+      setProfileAvatarUrl(data.avatar_url);
+    } catch (e) {
+      setAvatarImportError("Couldn't reach Discogs — try again.");
+    } finally {
+      setAvatarImporting(false);
+    }
+  };
+
+  // Opens the read-only profile modal for whoever posted a listing. Fetches
+  // once per author id and reuses the cached copy on repeat clicks.
+  const openProfileView = async (authorId, fallbackName) => {
+    if (!authorId) return;
+    setProfileViewModal({ authorId, name: fallbackName });
+    if (viewedProfiles[authorId]) return;
+    setProfileViewLoading(true);
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(PROFILE_COLUMNS)
+      .eq("id", authorId)
+      .maybeSingle();
+    if (!error && data) {
+      setViewedProfiles((v) => ({ ...v, [authorId]: data }));
+    }
+    setProfileViewLoading(false);
   };
 
   const signOut = async () => {
@@ -1837,7 +1954,15 @@ export default function DiscogsTradeList() {
             </>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <User size={15} color="#9D7047" />
+              {profile.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt=""
+                  style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid #2A2A2A" }}
+                />
+              ) : (
+                <User size={15} color="#9D7047" />
+              )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
                   <strong style={{ fontSize: 13.5, color: "#F5F0EC" }}>{profile.display_name}</strong>
@@ -1845,6 +1970,9 @@ export default function DiscogsTradeList() {
                 </div>
                 <div className="mono" style={{ color: "#5F5F5F", fontSize: 9.5, marginTop: 2 }}>{session.user.email}</div>
               </div>
+              <button type="button" onClick={openProfileEdit} title="Edit your profile" className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid #2A2A2A", borderRadius: 7, background: "transparent", color: "#9A9A9A", padding: "6px 8px", fontSize: 10.5, cursor: "pointer" }}>
+                <Pencil size={12} /> Profile
+              </button>
               <button type="button" onClick={signOut} title="Sign out" className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid #2A2A2A", borderRadius: 7, background: "transparent", color: "#9A9A9A", padding: "6px 8px", fontSize: 10.5, cursor: "pointer" }}>
                 <LogOut size={12} /> Sign out
               </button>
@@ -2967,25 +3095,50 @@ export default function DiscogsTradeList() {
                                 minWidth: 0,
                               }}
                             >
-                              <span
-                                className="mono"
-                                title={p.name}
-                                style={{
-                                  fontSize: 11,
-                                  background: "#121212",
-                                  color: "#F5F0EC",
-                                  padding: "4px 9px",
-                                  borderRadius: 20,
-                                  border: "1px solid #2A2A2A",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  minHeight: 28,
-                                  boxSizing: "border-box",
-                                }}
-                              >
-                                {p.name}
-                              </span>
+                              {p.author_id ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openProfileView(p.author_id, p.name)}
+                                  className="mono"
+                                  title={`View ${p.name}'s profile`}
+                                  style={{
+                                    fontSize: 11,
+                                    background: "#121212",
+                                    color: "#F5F0EC",
+                                    padding: "4px 9px",
+                                    borderRadius: 20,
+                                    border: "1px solid #2A2A2A",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    minHeight: 28,
+                                    boxSizing: "border-box",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  {p.name}
+                                </button>
+                              ) : (
+                                <span
+                                  className="mono"
+                                  title={p.name}
+                                  style={{
+                                    fontSize: 11,
+                                    background: "#121212",
+                                    color: "#F5F0EC",
+                                    padding: "4px 9px",
+                                    borderRadius: 20,
+                                    border: "1px solid #2A2A2A",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    minHeight: 28,
+                                    boxSizing: "border-box",
+                                  }}
+                                >
+                                  {p.name}
+                                </span>
+                              )}
 
                               {listType === "trade" && (
                                 <button
@@ -4015,6 +4168,347 @@ export default function DiscogsTradeList() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {profileEditOpen && (
+        <div
+          onClick={() => !profileSaving && setProfileEditOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 1000,
+            overflowY: "auto",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 420,
+              background: "#121212",
+              border: "1px solid #2A2A2A",
+              borderRadius: 12,
+              padding: 20,
+              boxSizing: "border-box",
+              maxHeight: "85vh",
+              overflowY: "auto",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <Pencil size={15} color="#9D7047" />
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC" }}>Edit your profile</div>
+            </div>
+            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 16 }}>
+              Shown to anyone who clicks your name on a listing.
+            </p>
+
+            {/* Photo */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              {profileAvatarUrl ? (
+                <img
+                  src={profileAvatarUrl}
+                  alt=""
+                  style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", border: "1px solid #2A2A2A", flexShrink: 0 }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: "50%",
+                    border: "1px dashed #2A2A2A",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <User size={20} color="#6B6B6B" />
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <label className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", display: "block", marginBottom: 5 }}>
+                  DISCOGS USERNAME
+                </label>
+                <div style={{ display: "flex", gap: 7 }}>
+                  <input
+                    value={profileDiscogsUsername}
+                    onChange={(e) => { setProfileDiscogsUsername(e.target.value); setAvatarImportError(null); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") importDiscogsAvatar(); }}
+                    placeholder="e.g. recordcollector99"
+                    style={{ flex: 1, minWidth: 0, padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={importDiscogsAvatar}
+                    disabled={avatarImporting || !profileDiscogsUsername.trim()}
+                    title="Pull your photo from Discogs"
+                    className="mono"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      border: "1px solid #2A2A2A",
+                      borderRadius: 7,
+                      background: "transparent",
+                      color: "#9D7047",
+                      padding: "0 10px",
+                      fontSize: 11,
+                      cursor: avatarImporting ? "wait" : "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {avatarImporting ? <RefreshCw size={12} className="spin" /> : <Disc3 size={12} />}
+                    Use photo
+                  </button>
+                </div>
+                {avatarImportError && (
+                  <div className="mono" style={{ color: "#E8B7B7", fontSize: 10, marginTop: 5 }}>{avatarImportError}</div>
+                )}
+              </div>
+            </div>
+
+            {/* Bio */}
+            <label className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", display: "block", marginBottom: 5 }}>
+              BIO
+            </label>
+            <textarea
+              value={profileBio}
+              onChange={(e) => setProfileBio(e.target.value)}
+              placeholder="A little about your collection, what you're into, etc."
+              rows={3}
+              style={{ width: "100%", padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box", fontFamily: "'Barlow', sans-serif", marginBottom: 14 }}
+            />
+
+            {/* Favorite genres */}
+            <label className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", display: "block", marginBottom: 5 }}>
+              FAVORITE GENRES
+            </label>
+            <input
+              value={profileFavoriteGenres}
+              onChange={(e) => setProfileFavoriteGenres(e.target.value)}
+              placeholder="e.g. Soul, Post-punk, Ambient"
+              style={{ width: "100%", padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 14 }}
+            />
+
+            {/* Socials */}
+            <label className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", display: "block", marginBottom: 5 }}>
+              SOCIALS
+            </label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <Instagram size={14} color="#6B6B6B" style={{ flexShrink: 0 }} />
+                <input
+                  value={profileInstagram}
+                  onChange={(e) => setProfileInstagram(e.target.value)}
+                  placeholder="Instagram handle"
+                  style={{ flex: 1, minWidth: 0, padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <Facebook size={14} color="#6B6B6B" style={{ flexShrink: 0 }} />
+                <input
+                  value={profileFacebook}
+                  onChange={(e) => setProfileFacebook(e.target.value)}
+                  placeholder="Facebook name or link"
+                  style={{ flex: 1, minWidth: 0, padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+            </div>
+
+            {/* Shipping */}
+            <label className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", display: "block", marginBottom: 5 }}>
+              SHIPPING
+            </label>
+            <button
+              type="button"
+              onClick={() => setProfileWillingToShip((v) => !v)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                width: "100%",
+                padding: "9px 10px",
+                borderRadius: 7,
+                border: `1px solid ${profileWillingToShip ? "#8FE3C1" : "#2A2A2A"}`,
+                background: profileWillingToShip ? "#8FE3C114" : "#000000",
+                color: profileWillingToShip ? "#8FE3C1" : "#9A9A9A",
+                fontSize: 13,
+                cursor: "pointer",
+                marginBottom: profileWillingToShip ? 7 : 14,
+              }}
+            >
+              <Truck size={14} />
+              {profileWillingToShip ? "Willing to ship" : "Local trade/pickup only"}
+            </button>
+            {profileWillingToShip && (
+              <input
+                value={profileShippingCost}
+                onChange={(e) => setProfileShippingCost(e.target.value)}
+                placeholder="Shipping cost, e.g. “$5 flat” or “buyer pays”"
+                style={{ width: "100%", padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 14 }}
+              />
+            )}
+
+            {authError && <div className="mono" style={{ color: "#E8B7B7", fontSize: 10.5, marginBottom: 10 }}>{authError}</div>}
+
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => setProfileEditOpen(false)}
+                disabled={profileSaving}
+                className="mono"
+                style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid #2A2A2A", background: "transparent", color: "#9A9A9A", fontSize: 12.5, cursor: profileSaving ? "default" : "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveProfileDetails}
+                disabled={profileSaving}
+                style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "none", background: "#9D7047", color: "#F5F0EC", fontWeight: 600, fontSize: 12.5, cursor: profileSaving ? "wait" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+              >
+                {profileSaving ? <RefreshCw size={14} className="spin" /> : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {profileViewModal && (
+        <div
+          onClick={() => setProfileViewModal(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 360,
+              background: "#121212",
+              border: "1px solid #2A2A2A",
+              borderRadius: 12,
+              padding: 20,
+              boxSizing: "border-box",
+              maxHeight: "85vh",
+              overflowY: "auto",
+            }}
+          >
+            {(() => {
+              const viewed = viewedProfiles[profileViewModal.authorId];
+              const displayName = viewed?.display_name || profileViewModal.name;
+              return (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                    {viewed?.avatar_url ? (
+                      <img
+                        src={viewed.avatar_url}
+                        alt=""
+                        style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", border: "1px solid #2A2A2A", flexShrink: 0 }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 52,
+                          height: 52,
+                          borderRadius: "50%",
+                          border: "1px solid #2A2A2A",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                          background: "#000000",
+                        }}
+                      >
+                        <User size={20} color="#6B6B6B" />
+                      </div>
+                    )}
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#F5F0EC" }}>{displayName}</div>
+                  </div>
+
+                  {profileViewLoading && !viewed ? (
+                    <div className="mono" style={{ color: "#9A9A9A", fontSize: 10.5 }}>Loading profile…</div>
+                  ) : !viewed ? (
+                    <div className="mono" style={{ color: "#9A9A9A", fontSize: 10.5 }}>No profile details yet.</div>
+                  ) : (
+                    <>
+                      {viewed.bio && (
+                        <p style={{ fontSize: 13, color: "#D8D3CC", lineHeight: 1.5, marginTop: 0, marginBottom: 14 }}>
+                          {viewed.bio}
+                        </p>
+                      )}
+
+                      {viewed.favorite_genres && (
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10 }}>
+                          <ListMusic size={14} color="#9D7047" style={{ flexShrink: 0, marginTop: 2 }} />
+                          <div style={{ fontSize: 12.5, color: "#D8D3CC" }}>{viewed.favorite_genres}</div>
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                        <Truck size={14} color={viewed.willing_to_ship ? "#8FE3C1" : "#6B6B6B"} style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: 12.5, color: viewed.willing_to_ship ? "#8FE3C1" : "#6B6B6B" }}>
+                          {viewed.willing_to_ship
+                            ? `Willing to ship${viewed.shipping_cost ? ` — ${viewed.shipping_cost}` : ""}`
+                            : "Local trade/pickup only"}
+                        </div>
+                      </div>
+
+                      {(viewed.discogs_username || viewed.instagram || viewed.facebook) && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 12, paddingTop: 12, borderTop: "1px solid #2A2A2A" }}>
+                          {viewed.discogs_username && (
+                            <a
+                              href={`https://www.discogs.com/user/${encodeURIComponent(viewed.discogs_username)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mono"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#9D7047", textDecoration: "none" }}
+                            >
+                              <Disc3 size={13} /> {viewed.discogs_username}
+                            </a>
+                          )}
+                          {viewed.instagram && (
+                            <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#D8D3CC" }}>
+                              <Instagram size={13} color="#6B6B6B" /> {viewed.instagram}
+                            </span>
+                          )}
+                          {viewed.facebook && (
+                            <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#D8D3CC" }}>
+                              <Facebook size={13} color="#6B6B6B" /> {viewed.facebook}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setProfileViewModal(null)}
+                    className="mono"
+                    style={{ width: "100%", marginTop: 18, padding: "8px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#6B6B6B", fontSize: 11.5, cursor: "pointer" }}
+                  >
+                    Close
+                  </button>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
