@@ -21,10 +21,15 @@ const newId = () =>
 // status states for items currently up For Trade — n/a for In Search Of items
 const STATUS_CONFIG = {
   available: { label: "Available", icon: CheckCircle2, color: "#8FE3C1" },
-  claimed: { label: "Claimed", icon: Package, color: "#708BE4" },
-  pending: { label: "Pending", icon: PauseCircle, color: "#C99A3A" },
-  traded: { label: "Traded", icon: Truck, color: "#403652" },
+  claimed: { label: "Claimed", icon: Package, color: "#da70e4" },
+  traded: { label: "Traded", icon: Truck, color: "#8d68d0" },
 };
+
+// Pending was folded into Claimed — kept as a distinct state but no workflow
+// ever actually distinguished the two. Rows saved as "pending" before this
+// change still exist in the DB, so read them back as "claimed" everywhere
+// rather than requiring a migration.
+const normalizeStatus = (status) => (status === "pending" ? "claimed" : status);
 
 // how an item up for sale/trade can be swapped — legacy rows (added before
 // this existed) have no listing_type saved, so every read of it falls back
@@ -775,6 +780,7 @@ export default function DiscogsTradeList() {
   // even when most people actually want vinyl. "vinyl" | "cd" | "both" | null
   const [modalFormatChoice, setModalFormatChoice] = useState(null);
   const [showUnavailable, setShowUnavailable] = useState(false);
+  const [showSwapped, setShowSwapped] = useState(false);
   const [showGradingGuide, setShowGradingGuide] = useState(false);
 
   // how the item can be swapped, required whenever listModal.type === "trade".
@@ -1681,6 +1687,18 @@ export default function DiscogsTradeList() {
   const filteredItemGroups = itemGroups.filter((group) =>
     itemSearchMatches(group, itemSearchQuery)
   );
+
+  // Status only applies on the For Trade tab. A title can be offered by
+  // several people at once, so a group only drops into Swapped once every
+  // copy on offer has been marked Traded — one person still holding an
+  // available/claimed copy keeps the whole group in Active.
+  const isGroupSwapped = (group) =>
+    listType === "trade" &&
+    group.people.length > 0 &&
+    group.people.every((p) => normalizeStatus(p.status) === "traded");
+
+  const activeItemGroups = filteredItemGroups.filter((group) => !isGroupSwapped(group));
+  const swappedItemGroups = filteredItemGroups.filter((group) => isGroupSwapped(group));
 
   // Names the genre/format filters currently narrowing the list, for the
   // "nothing here" message. Person is handled separately — it reads better as
@@ -2674,9 +2692,17 @@ export default function DiscogsTradeList() {
                 )}
               </div>
             )}
+            {listType === "trade" && !loadingEntries && activeItemGroups.length > 0 && swappedItemGroups.length > 0 && (
+              <div
+                className="mono"
+                style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.5, color: "#6B6B6B", padding: "4px 0 10px" }}
+              >
+                Active ({activeItemGroups.length})
+              </div>
+            )}
             {loadingEntries ? (
               <EmptyState text="Loading the crate…" />
-            ) : filteredItemGroups.length === 0 ? (
+            ) : activeItemGroups.length === 0 ? (
               <EmptyState
                 text={
                   itemSearchQuery.trim()
@@ -2687,11 +2713,13 @@ export default function DiscogsTradeList() {
                         ? `Nothing matches ${activeItemFilterLabels.join(" + ")}.`
                         : personFilter !== "all"
                           ? `${personFilter} has nothing on this list.`
-                          : activeType.emptyAdd
+                          : swappedItemGroups.length > 0
+                            ? "Nothing active right now — see Swapped below."
+                            : activeType.emptyAdd
                 }
               />
             ) : (
-              filteredItemGroups.map((g) => (
+              activeItemGroups.map((g) => (
                 <div
                   key={g.title}
                   className="entry-row"
@@ -2913,7 +2941,7 @@ export default function DiscogsTradeList() {
                     )}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6, rowGap: 8 }}>
                       {g.people.map((p) => {
-                        const statusInfo = listType === "trade" && p.status ? STATUS_CONFIG[p.status] : null;
+                        const statusInfo = listType === "trade" && p.status ? STATUS_CONFIG[normalizeStatus(p.status)] : null;
                         const StatusIcon = statusInfo ? statusInfo.icon : null;
                         const canModify = !!session && !!profile && (profile.is_admin || p.author_id === session.user.id);
                         const clickable = listType === "trade" && canModify;
@@ -2962,7 +2990,7 @@ export default function DiscogsTradeList() {
                               {listType === "trade" && (
                                 <button
                                   type="button"
-                                  onClick={clickable ? () => setStatusModal({ id: p.id, title: g.title, current: p.status || null }) : undefined}
+                                  onClick={clickable ? () => setStatusModal({ id: p.id, title: g.title, current: normalizeStatus(p.status) || null }) : undefined}
                                   className="mono"
                                   title={`Status: ${statusInfo ? statusInfo.label : "Available"}${clickable ? " — click to change" : ""}`}
                                   style={{
@@ -3146,6 +3174,85 @@ export default function DiscogsTradeList() {
                   </div>
                 </div>
               ))
+            )}
+
+            {swappedItemGroups.length > 0 && (
+              <div style={{ marginTop: 18 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowSwapped((v) => !v)}
+                  className="mono"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#6B6B6B",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: 0.5,
+                    cursor: "pointer",
+                    padding: "4px 0",
+                  }}
+                >
+                  {showSwapped ? "▾" : "▸"} Swapped ({swappedItemGroups.length})
+                </button>
+                {showSwapped &&
+                  swappedItemGroups.map((g) => (
+                    <div
+                      key={g.title}
+                      className="entry-row"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: 8,
+                        padding: "8px 4px",
+                        borderBottom: "1px solid #2A2A2A",
+                        opacity: 0.55,
+                      }}
+                    >
+                      <RecordThumb
+                        src={g.thumb}
+                        alt={g.title}
+                        size={34}
+                        onClick={() => setImagePreview({ src: g.image_full || g.thumb, alt: g.title })}
+                      />
+                      <div style={{ flex: 1, minWidth: 160 }}>
+                        <div style={{ fontSize: 13.5, color: "#9A9A9A" }}>{g.title}</div>
+                        <span className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>
+                          {g.people.map((p) => p.name).join(", ")}
+                        </span>
+                      </div>
+                      {g.people.map((p) => {
+                        const canModify = !!session && !!profile && (profile.is_admin || p.author_id === session.user.id);
+                        if (!canModify) return null;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setStatusModal({ id: p.id, title: g.title, current: normalizeStatus(p.status) || null })}
+                            title={`Reopen ${p.name}'s copy — change status`}
+                            style={{
+                              background: "none",
+                              border: "1px solid #2A2A2A",
+                              color: "#9A9A9A",
+                              cursor: "pointer",
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                              fontSize: 11,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                              flexShrink: 0,
+                            }}
+                          >
+                            <RotateCcw size={12} />
+                            Reopen{g.people.length > 1 ? ` (${p.name})` : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+              </div>
             )}
 
             {unavailableEntries.length > 0 && (
