@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect, useCallback } from "react";
-import { Search, Disc3, User, Plus, X, Trash2, RefreshCw, ListMusic, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag, Instagram, Facebook } from "lucide-react";
+import { Search, Disc3, User, Plus, X, Trash2, RefreshCw, ListMusic, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag, AtSign, Link2 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { Analytics } from "@vercel/analytics/react";
 
@@ -24,8 +24,8 @@ const newId = () =>
 // status states for items currently up For Trade — n/a for In Search Of items
 const STATUS_CONFIG = {
   available: { label: "Available", icon: CheckCircle2, color: "#8FE3C1" },
-  claimed: { label: "Claimed", icon: Package, color: "#d198e1" },
-  traded: { label: "Traded", icon: Truck, color: "#9b89bd" },
+  claimed: { label: "Claimed", icon: Package, color: "#708BE4" },
+  traded: { label: "Traded", icon: Truck, color: "#403652" },
 };
 
 // Pending was folded into Claimed — kept as a distinct state but no workflow
@@ -4304,7 +4304,7 @@ export default function DiscogsTradeList() {
             </label>
             <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 14 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <Instagram size={14} color="#6B6B6B" style={{ flexShrink: 0 }} />
+                <AtSign size={14} color="#6B6B6B" style={{ flexShrink: 0 }} />
                 <input
                   value={profileInstagram}
                   onChange={(e) => setProfileInstagram(e.target.value)}
@@ -4313,7 +4313,7 @@ export default function DiscogsTradeList() {
                 />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <Facebook size={14} color="#6B6B6B" style={{ flexShrink: 0 }} />
+                <Link2 size={14} color="#6B6B6B" style={{ flexShrink: 0 }} />
                 <input
                   value={profileFacebook}
                   onChange={(e) => setProfileFacebook(e.target.value)}
@@ -4485,12 +4485,12 @@ export default function DiscogsTradeList() {
                           )}
                           {viewed.instagram && (
                             <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#D8D3CC" }}>
-                              <Instagram size={13} color="#6B6B6B" /> {viewed.instagram}
+                              <AtSign size={13} color="#6B6B6B" /> {viewed.instagram}
                             </span>
                           )}
                           {viewed.facebook && (
                             <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#D8D3CC" }}>
-                              <Facebook size={13} color="#6B6B6B" /> {viewed.facebook}
+                              <Link2 size={13} color="#6B6B6B" /> {viewed.facebook}
                             </span>
                           )}
                         </div>
