@@ -100,6 +100,17 @@ function detectListeningPlatform(url) {
   return "other";
 }
 
+// Best-effort guess at song vs playlist from the URL shape alone, used to
+// auto-switch the submit sub-tab once a link resolves — the poster can still
+// override it before hitting Post.
+function detectListeningKind(url, platform) {
+  const u = (url || "").toLowerCase();
+  if (platform === "spotify") return u.includes("/playlist/") || u.includes("/album/") ? "playlist" : "song";
+  if (platform === "youtube") return u.includes("list=") ? "playlist" : "song";
+  if (platform === "bandcamp") return u.includes("/album/") ? "playlist" : "song";
+  return "song";
+}
+
 function useFonts() {
   useEffect(() => {
     if (!document.getElementById("tradelist-fonts")) {
@@ -1138,9 +1149,9 @@ export default function DiscogsTradeList() {
 
   // Best-effort title/thumbnail preview as someone pastes a link, so they can
   // see what they're about to post. Spotify and YouTube both expose a public,
-  // CORS-friendly oEmbed endpoint; Bandcamp doesn't, so bandcamp links fall
-  // back to an icon-only card (a small server-side proxy could add this
-  // later, the same way /api/discogs-search proxies Discogs).
+  // CORS-friendly oEmbed endpoint; Bandcamp doesn't, so bandcamp links go
+  // through /api/bandcamp-oembed, a small serverless proxy that reads the
+  // page's OpenGraph tags server-side instead.
   useEffect(() => {
     const url = listeningUrl.trim();
     if (!url) {
@@ -1159,6 +1170,13 @@ export default function DiscogsTradeList() {
         } else if (platform === "youtube") {
           const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
           if (res.ok) data = await res.json();
+        } else if (platform === "bandcamp") {
+          // Bandcamp has no public oEmbed — /api/bandcamp-oembed fetches the
+          // page server-side (no CORS issue there) and reads its OpenGraph
+          // tags instead, the same way /api/discogs-search keeps the Discogs
+          // token off the client.
+          const res = await fetch(`/api/bandcamp-oembed?url=${encodeURIComponent(url)}`);
+          if (res.ok) data = await res.json();
         }
         if (!cancelled) {
           setListeningPreview(
@@ -1166,6 +1184,8 @@ export default function DiscogsTradeList() {
               ? { title: data.title || "", subtitle: data.author_name || "", thumbnailUrl: data.thumbnail_url || null }
               : null
           );
+          // if the link resolved, nudge the sub-tab to match what it looks like
+          if (data) setListeningSubTab(detectListeningKind(url, platform));
         }
       } catch (e) {
         if (!cancelled) setListeningPreview(null);
@@ -3952,7 +3972,7 @@ export default function DiscogsTradeList() {
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             style={{
-              color: "#eae135",
+              color: "#62542d",
               fontSize: 13.5,
               fontWeight: 600,
               textDecoration: "none",
