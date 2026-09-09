@@ -3972,7 +3972,7 @@ export default function DiscogsTradeList() {
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             style={{
-              color: "#62542d",
+              color: "#1A0E0F",
               fontSize: 13.5,
               fontWeight: 600,
               textDecoration: "none",
