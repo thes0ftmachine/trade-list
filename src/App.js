@@ -838,6 +838,10 @@ export default function DiscogsTradeList() {
   // best-effort title/thumbnail pulled from the link itself before posting
   const [listeningPreview, setListeningPreview] = useState(null); // { title, subtitle, thumbnailUrl } | null
   const [listeningPreviewLoading, setListeningPreviewLoading] = useState(false);
+  // edit popup for your own post — { id, note, kind } | null
+  const [listeningEditModal, setListeningEditModal] = useState(null);
+  // delete-confirm popup for your own post — { id, title } | null
+  const [listeningRemoveModal, setListeningRemoveModal] = useState(null);
 
   // "list" popup — used adding a discogs search result (source: "search")
   // and grabbing someone else's item onto your own list (source: "other").
@@ -1252,6 +1256,33 @@ export default function DiscogsTradeList() {
       setListeningPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, liked_by: likedBy } : p)));
       showToast("Couldn't update like");
     }
+  };
+
+  // Only the note and song/playlist filing can be edited after posting — the
+  // link, title, and thumbnail all come from the URL itself, so changing
+  // those would mean treating it as a brand new post anyway.
+  const saveListeningEdit = async () => {
+    if (!listeningEditModal) return;
+    const { id, note, kind } = listeningEditModal;
+    const { error } = await supabase.from(LISTENING_TABLE).update({ note: note.trim() || null, kind }).eq("id", id);
+    if (error) {
+      showToast("Couldn't save that edit");
+      return;
+    }
+    setListeningPosts((prev) => prev.map((p) => (p.id === id ? { ...p, note: note.trim() || null, kind } : p)));
+    setListeningEditModal(null);
+    showToast("Post updated", true);
+  };
+
+  const deleteListeningPost = async (id) => {
+    const { error } = await supabase.from(LISTENING_TABLE).delete().eq("id", id);
+    if (error) {
+      showToast("Couldn't remove that post");
+      return;
+    }
+    setListeningPosts((prev) => prev.filter((p) => p.id !== id));
+    setListeningRemoveModal(null);
+    showToast("Post removed", true);
   };
 
   // Switching top-level tabs resets the sub-view back to By item, and clears
@@ -3948,6 +3979,30 @@ export default function DiscogsTradeList() {
                                 <Heart size={14} fill={liked ? "#9D7047" : "none"} />
                                 {likeCount}
                               </button>
+                              {session && post.author_id === session.user.id && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setListeningEditModal({ id: post.id, note: post.note || "", kind: post.kind || "song" })
+                                    }
+                                    title="Edit post"
+                                    aria-label="Edit post"
+                                    style={{ display: "flex", alignItems: "center", marginLeft: "auto", background: "transparent", border: "none", color: "#6B6B6B", cursor: "pointer", padding: 0 }}
+                                  >
+                                    <Pencil size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setListeningRemoveModal({ id: post.id, title: post.title || post.url })}
+                                    title="Remove post"
+                                    aria-label="Remove post"
+                                    style={{ display: "flex", alignItems: "center", background: "transparent", border: "none", color: "#9D7047", cursor: "pointer", padding: 0 }}
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -3972,7 +4027,7 @@ export default function DiscogsTradeList() {
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             style={{
-              color: "#1A0E0F",
+              color: "#CEAE73",
               fontSize: 13.5,
               fontWeight: 600,
               textDecoration: "none",
@@ -5096,6 +5151,201 @@ export default function DiscogsTradeList() {
                 fontSize: 11.5,
                 cursor: "pointer",
                 marginTop: 4,
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {listeningEditModal && (
+        <div
+          onClick={() => setListeningEditModal(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 380,
+              background: "#121212",
+              border: "1px solid #2A2A2A",
+              borderRadius: 12,
+              padding: 20,
+              boxSizing: "border-box",
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC", marginBottom: 4 }}>Edit post</div>
+            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 12 }}>
+              The link, title, and thumbnail come from the URL itself — only the note and filing can change.
+            </p>
+
+            <div style={{ display: "flex", gap: 4, background: "#000000", border: "1px solid #2A2A2A", borderRadius: 7, padding: 3, marginBottom: 12 }}>
+              {["song", "playlist"].map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setListeningEditModal({ ...listeningEditModal, kind: k })}
+                  style={{
+                    flex: 1,
+                    padding: "7px 0",
+                    borderRadius: 5,
+                    border: "none",
+                    cursor: "pointer",
+                    background: listeningEditModal.kind === k ? "#8FE3C1" : "transparent",
+                    color: listeningEditModal.kind === k ? "#000000" : "#9A9A9A",
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {k}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              value={listeningEditModal.note}
+              onChange={(e) => setListeningEditModal({ ...listeningEditModal, note: e.target.value })}
+              placeholder="Add a short note (optional)"
+              rows={3}
+              autoFocus
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #2A2A2A",
+                background: "#000000",
+                color: "#F5F0EC",
+                fontSize: 14,
+                boxSizing: "border-box",
+                outline: "none",
+                resize: "vertical",
+                fontFamily: "'Barlow', sans-serif",
+                marginBottom: 14,
+              }}
+            />
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={saveListeningEdit}
+                style={{
+                  flex: 1,
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#9D7047",
+                  color: "#F5F0EC",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setListeningEditModal(null)}
+                style={{
+                  flex: 1,
+                  padding: "10px 16px",
+                  borderRadius: 8,
+                  border: "1px solid #2A2A2A",
+                  background: "transparent",
+                  color: "#9A9A9A",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {listeningRemoveModal && (
+        <div
+          onClick={() => setListeningRemoveModal(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 360,
+              background: "#121212",
+              border: "1px solid #2A2A2A",
+              borderRadius: 12,
+              padding: 20,
+              boxSizing: "border-box",
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC", marginBottom: 4 }}>
+              Remove this post?
+            </div>
+            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 16 }}>
+              {listeningRemoveModal.title} — this can't be undone.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => deleteListeningPost(listeningRemoveModal.id)}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #9D7047",
+                background: "#9D704718",
+                color: "#F5F0EC",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+                marginBottom: 8,
+              }}
+            >
+              <Trash2 size={15} color="#9D7047" />
+              Remove permanently
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setListeningRemoveModal(null)}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #2A2A2A",
+                background: "transparent",
+                color: "#9A9A9A",
+                fontSize: 14,
+                fontWeight: 500,
+                cursor: "pointer",
               }}
             >
               Cancel
