@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect, useCallback } from "react";
-import { Search, Disc3, User, Plus, X, Trash2, RefreshCw, ListMusic, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag, AtSign } from "lucide-react";
+import { Search, Disc3, User, Plus, X, Trash2, RefreshCw, ListMusic, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag, AtSign, Headphones, Heart, PlayCircle, Link2, Music2 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { Analytics } from "@vercel/analytics/react";
 
@@ -80,6 +80,25 @@ const LIST_TYPES = {
     emptyAdd: "No one's added a want yet. Be the first to add something you're hunting for.",
   },
 };
+
+const LISTENING_TABLE = "listening_posts";
+
+// Recognized platforms for the Listening tab — controls the badge color and
+// which oEmbed endpoint (if any) we try for a thumbnail/title preview.
+const LISTENING_PLATFORMS = {
+  spotify: { label: "Spotify", color: "#8FE3C1" },
+  youtube: { label: "YouTube", color: "#d198e1" },
+  bandcamp: { label: "Bandcamp", color: "#5B9BD5" },
+  other: { label: "Link", color: "#9A9A9A" },
+};
+
+function detectListeningPlatform(url) {
+  const u = (url || "").toLowerCase();
+  if (u.includes("spotify.com")) return "spotify";
+  if (u.includes("youtube.com") || u.includes("youtu.be")) return "youtube";
+  if (u.includes("bandcamp.com")) return "bandcamp";
+  return "other";
+}
 
 function useFonts() {
   useEffect(() => {
@@ -794,6 +813,21 @@ export default function DiscogsTradeList() {
   const [toast, setToast] = useState(null);
   const [toastSuccess, setToastSuccess] = useState(false);
 
+  // "Listening" tab — song/playlist recommendations from Spotify, YouTube,
+  // Bandcamp, etc. It's a third value of listType (alongside "trade" and
+  // "seeking"), but has its own table, sub-tabs, and submit flow rather than
+  // plugging into the trade/seeking rendering below.
+  const [listeningPosts, setListeningPosts] = useState([]);
+  const [loadingListening, setLoadingListening] = useState(true);
+  const [listeningSubTab, setListeningSubTab] = useState("song"); // song | playlist
+  const [listeningPlatformFilter, setListeningPlatformFilter] = useState("all");
+  const [listeningUrl, setListeningUrl] = useState("");
+  const [listeningNote, setListeningNote] = useState("");
+  const [listeningSubmitting, setListeningSubmitting] = useState(false);
+  // best-effort title/thumbnail pulled from the link itself before posting
+  const [listeningPreview, setListeningPreview] = useState(null); // { title, subtitle, thumbnailUrl } | null
+  const [listeningPreviewLoading, setListeningPreviewLoading] = useState(false);
+
   // "list" popup — used adding a discogs search result (source: "search")
   // and grabbing someone else's item onto your own list (source: "other").
   const [listModal, setListModal] = useState(null); // { source, item, type }
@@ -1080,6 +1114,125 @@ export default function DiscogsTradeList() {
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
+
+  const loadListeningPosts = useCallback(async () => {
+    setLoadingListening(true);
+    try {
+      const { data, error } = await supabase
+        .from(LISTENING_TABLE)
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setListeningPosts(data || []);
+    } catch (e) {
+      showToast("Couldn't load Listening posts — check your connection");
+      setListeningPosts([]);
+    } finally {
+      setLoadingListening(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadListeningPosts();
+  }, [loadListeningPosts]);
+
+  // Best-effort title/thumbnail preview as someone pastes a link, so they can
+  // see what they're about to post. Spotify and YouTube both expose a public,
+  // CORS-friendly oEmbed endpoint; Bandcamp doesn't, so bandcamp links fall
+  // back to an icon-only card (a small server-side proxy could add this
+  // later, the same way /api/discogs-search proxies Discogs).
+  useEffect(() => {
+    const url = listeningUrl.trim();
+    if (!url) {
+      setListeningPreview(null);
+      return;
+    }
+    const platform = detectListeningPlatform(url);
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setListeningPreviewLoading(true);
+      try {
+        let data = null;
+        if (platform === "spotify") {
+          const res = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`);
+          if (res.ok) data = await res.json();
+        } else if (platform === "youtube") {
+          const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+          if (res.ok) data = await res.json();
+        }
+        if (!cancelled) {
+          setListeningPreview(
+            data
+              ? { title: data.title || "", subtitle: data.author_name || "", thumbnailUrl: data.thumbnail_url || null }
+              : null
+          );
+        }
+      } catch (e) {
+        if (!cancelled) setListeningPreview(null);
+      } finally {
+        if (!cancelled) setListeningPreviewLoading(false);
+      }
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [listeningUrl]);
+
+  const submitListeningPost = async () => {
+    const url = listeningUrl.trim();
+    if (!url) {
+      showToast("Paste a link first");
+      return;
+    }
+    if (!session || !profile) {
+      showToast("Sign in to post a recommendation");
+      return;
+    }
+    setListeningSubmitting(true);
+    const platform = detectListeningPlatform(url);
+    const entry = {
+      url,
+      platform,
+      kind: listeningSubTab, // "song" | "playlist" — trusts whichever sub-tab they posted from
+      title: listeningPreview?.title || null,
+      subtitle: listeningPreview?.subtitle || null,
+      thumbnail_url: listeningPreview?.thumbnailUrl || null,
+      note: listeningNote.trim() || null,
+      author_id: session.user.id,
+      author_name: profile.display_name,
+      liked_by: [],
+    };
+    const { data, error } = await supabase.from(LISTENING_TABLE).insert([entry]).select().single();
+    setListeningSubmitting(false);
+    if (error) {
+      showToast("Couldn't post that — try again");
+      return;
+    }
+    setListeningPosts((prev) => [data, ...prev]);
+    setListeningUrl("");
+    setListeningNote("");
+    setListeningPreview(null);
+    showToast("Posted to Listening", true);
+  };
+
+  const toggleListeningLike = async (post) => {
+    if (!session) {
+      showToast("Sign in to like a post");
+      return;
+    }
+    const uid = session.user.id;
+    const likedBy = post.liked_by || [];
+    const alreadyLiked = likedBy.includes(uid);
+    const nextLikedBy = alreadyLiked ? likedBy.filter((id) => id !== uid) : [...likedBy, uid];
+    // optimistic update, rolled back if the write fails
+    setListeningPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, liked_by: nextLikedBy } : p)));
+    const { error } = await supabase.from(LISTENING_TABLE).update({ liked_by: nextLikedBy }).eq("id", post.id);
+    if (error) {
+      setListeningPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, liked_by: likedBy } : p)));
+      showToast("Couldn't update like");
+    }
+  };
 
   // Switching top-level tabs resets the sub-view back to By item, and clears
   // filters/search so a stale filter from one tab doesn't silently hide
@@ -2015,8 +2168,34 @@ export default function DiscogsTradeList() {
               </button>
             );
           })}
+          <button
+            type="button"
+            className="listtype-btn"
+            onClick={() => setListType("listening")}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "14px 12px",
+              borderRadius: 10,
+              border: listType === "listening" ? "1px solid #9D7047" : "1px solid #2A2A2A",
+              cursor: "pointer",
+              background: listType === "listening" ? "#1A0E0F" : "#121212",
+              color: listType === "listening" ? "#F5F0EC" : "#9A9A9A",
+              fontSize: 14.5,
+              fontWeight: 700,
+              letterSpacing: 0.3,
+            }}
+          >
+            <Headphones size={16} color={listType === "listening" ? "#9D7047" : "#6B6B6B"} />
+            Listening
+          </button>
         </div>
 
+        {listType !== "listening" && (
+        <>
         <p style={{ color: "#9A9A9A", fontSize: 14, lineHeight: 1.5, marginTop: 0, marginBottom: 24, textAlign: "center" }}>
           {activeType.intro} Items you add are tied to your signed-in account.
         </p>
@@ -3493,6 +3672,270 @@ export default function DiscogsTradeList() {
                     );
                   })}
               </div>
+            )}
+          </div>
+        )}
+        </>
+        )}
+
+        {/* LISTENING TAB */}
+        {listType === "listening" && (
+          <div>
+            <p style={{ color: "#9A9A9A", fontSize: 14, lineHeight: 1.5, marginTop: 0, marginBottom: 24, textAlign: "center" }}>
+              Share a track, album, or playlist worth hearing. Posts are tied to your signed-in account.
+            </p>
+
+            {/* Submit box */}
+            <div style={{ background: "#0D0D0D", border: "1px solid #2A2A2A", borderRadius: 10, padding: 14, marginBottom: 20 }}>
+              {!session || !profile ? (
+                <div style={{ color: "#9A9A9A", fontSize: 13, lineHeight: 1.5 }}>
+                  Sign in above to post a recommendation. You can still browse what's here.
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#000000", border: "1px solid #2A2A2A", borderRadius: 8, padding: "10px 12px", marginBottom: 10 }}>
+                    <Link2 size={15} color="#9A9A9A" style={{ flexShrink: 0 }} />
+                    <input
+                      value={listeningUrl}
+                      onChange={(e) => setListeningUrl(e.target.value)}
+                      placeholder="Paste a Spotify, YouTube, or Bandcamp link…"
+                      style={{ flex: 1, border: "none", background: "transparent", color: "#F5F0EC", fontSize: 13.5, outline: "none" }}
+                    />
+                  </div>
+
+                  {listeningPreviewLoading && (
+                    <div className="mono" style={{ fontSize: 10.5, color: "#5F5F5F", marginBottom: 10 }}>
+                      Looking up that link…
+                    </div>
+                  )}
+
+                  {listeningPreview && !listeningPreviewLoading && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#121212", border: "1px solid #2A2A2A", borderRadius: 8, padding: 8, marginBottom: 10 }}>
+                      {listeningPreview.thumbnailUrl ? (
+                        <img
+                          src={listeningPreview.thumbnailUrl}
+                          alt={listeningPreview.title}
+                          style={{ width: 44, height: 44, borderRadius: 6, objectFit: "cover", flexShrink: 0 }}
+                        />
+                      ) : (
+                        <div style={{ width: 44, height: 44, borderRadius: 6, background: "#000000", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <Music2 size={18} color="#6B6B6B" />
+                        </div>
+                      )}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12.5, color: "#F5F0EC", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {listeningPreview.title || "Untitled"}
+                        </div>
+                        {listeningPreview.subtitle && (
+                          <div style={{ fontSize: 11, color: "#9A9A9A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {listeningPreview.subtitle}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <input
+                    value={listeningNote}
+                    onChange={(e) => setListeningNote(e.target.value)}
+                    placeholder="Add a short note (optional)"
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 10px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", marginBottom: 10 }}
+                  />
+
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ display: "flex", gap: 4, background: "#000000", border: "1px solid #2A2A2A", borderRadius: 7, padding: 3 }}>
+                      {["song", "playlist"].map((k) => (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => setListeningSubTab(k)}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 5,
+                            border: "none",
+                            cursor: "pointer",
+                            background: listeningSubTab === k ? "#8FE3C1" : "transparent",
+                            color: listeningSubTab === k ? "#000000" : "#9A9A9A",
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            textTransform: "capitalize",
+                          }}
+                        >
+                          {k}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={submitListeningPost}
+                      disabled={listeningSubmitting || !listeningUrl.trim()}
+                      style={{
+                        border: "none",
+                        borderRadius: 7,
+                        padding: "9px 16px",
+                        background: listeningUrl.trim() ? "#9D7047" : "#3A3A3A",
+                        color: "#F5F0EC",
+                        fontWeight: 600,
+                        fontSize: 12.5,
+                        cursor: listeningUrl.trim() ? "pointer" : "not-allowed",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      {listeningSubmitting ? <RefreshCw size={13} className="spin" /> : <Plus size={13} />}
+                      Post
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Songs / Playlists sub-tabs for the feed */}
+            <div style={{ display: "flex", gap: 4, background: "#121212", borderRadius: 10, padding: 4, marginBottom: 14, border: "1px solid #2A2A2A" }}>
+              {["song", "playlist"].map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setListeningSubTab(k)}
+                  style={{
+                    flex: 1,
+                    padding: "9px 10px",
+                    borderRadius: 7,
+                    border: "none",
+                    cursor: "pointer",
+                    background: listeningSubTab === k ? "#9D7047" : "transparent",
+                    color: listeningSubTab === k ? "#F5F0EC" : "#9A9A9A",
+                    fontSize: 13.5,
+                    fontWeight: 600,
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {k === "song" ? "Songs" : "Playlists"}
+                </button>
+              ))}
+            </div>
+
+            {/* Platform filter chips */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto" }}>
+              <button
+                type="button"
+                onClick={() => setListeningPlatformFilter("all")}
+                style={{
+                  fontSize: 10.5,
+                  color: "#F5F0EC",
+                  background: listeningPlatformFilter === "all" ? "#121212" : "transparent",
+                  border: listeningPlatformFilter === "all" ? "1px solid #8FE3C1" : "1px solid transparent",
+                  padding: "5px 10px",
+                  borderRadius: 20,
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                }}
+              >
+                All
+              </button>
+              {Object.entries(LISTENING_PLATFORMS)
+                .filter(([key]) => key !== "other")
+                .map(([key, cfg]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setListeningPlatformFilter(key)}
+                    style={{
+                      fontSize: 10.5,
+                      color: listeningPlatformFilter === key ? "#F5F0EC" : "#9A9A9A",
+                      background: listeningPlatformFilter === key ? "#121212" : "transparent",
+                      border: listeningPlatformFilter === key ? `1px solid ${cfg.color}` : "1px solid transparent",
+                      padding: "5px 10px",
+                      borderRadius: 20,
+                      whiteSpace: "nowrap",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {cfg.label}
+                  </button>
+                ))}
+            </div>
+
+            {/* Feed */}
+            {loadingListening ? (
+              <EmptyState text="Loading the feed…" />
+            ) : (
+              (() => {
+                const visiblePosts = listeningPosts.filter((p) => {
+                  if ((p.kind || "song") !== listeningSubTab) return false;
+                  if (listeningPlatformFilter !== "all" && p.platform !== listeningPlatformFilter) return false;
+                  return true;
+                });
+                if (visiblePosts.length === 0) {
+                  return (
+                    <EmptyState
+                      text={
+                        listeningSubTab === "song"
+                          ? "No songs posted yet. Be the first to share one."
+                          : "No playlists posted yet. Be the first to share one."
+                      }
+                    />
+                  );
+                }
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {visiblePosts.map((post) => {
+                      const cfg = LISTENING_PLATFORMS[post.platform] || LISTENING_PLATFORMS.other;
+                      const liked = !!(session && (post.liked_by || []).includes(session.user.id));
+                      const likeCount = (post.liked_by || []).length;
+                      return (
+                        <div key={post.id} style={{ background: "#121212", border: "1px solid #2A2A2A", borderRadius: 10, padding: 11, display: "flex", gap: 10 }}>
+                          <div style={{ width: 52, height: 52, flexShrink: 0, borderRadius: 7, overflow: "hidden", background: "#000000", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                            {post.thumbnail_url ? (
+                              <img src={post.thumbnail_url} alt={post.title || ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            ) : post.kind === "playlist" ? (
+                              <ListMusic size={22} color={cfg.color} />
+                            ) : (
+                              <Music2 size={22} color={cfg.color} />
+                            )}
+                            <div style={{ position: "absolute", bottom: 3, right: 3, width: 15, height: 15, borderRadius: 4, background: "#000000", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <span style={{ width: 6, height: 6, borderRadius: "50%", background: cfg.color }} />
+                            </div>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <a
+                              href={post.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ fontSize: 13, fontWeight: 600, color: "#F5F0EC", textDecoration: "none", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}
+                            >
+                              {post.title || post.url}
+                            </a>
+                            <div className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", margin: "3px 0 6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {post.subtitle ? `${post.subtitle} · ` : ""}via {cfg.label} · posted by {post.author_name || "someone"}
+                            </div>
+                            {post.note && (
+                              <div style={{ fontSize: 11.5, color: "#F5F0EC", background: "#0D0D0D", border: "1px solid #2A2A2A", borderRadius: 7, padding: "6px 8px", marginBottom: 8 }}>
+                                {post.note}
+                              </div>
+                            )}
+                            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                              <a href={post.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#9A9A9A", textDecoration: "none" }}>
+                                <PlayCircle size={14} />
+                                {post.kind === "playlist" ? "Listen" : "Play"}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => toggleListeningLike(post)}
+                                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: liked ? "#9D7047" : "#9A9A9A", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                              >
+                                <Heart size={14} fill={liked ? "#9D7047" : "none"} />
+                                {likeCount}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()
             )}
           </div>
         )}
