@@ -86,9 +86,9 @@ const LISTENING_TABLE = "listening_posts";
 // Recognized platforms for the Listening tab — controls the badge color and
 // which oEmbed endpoint (if any) we try for a thumbnail/title preview.
 const LISTENING_PLATFORMS = {
-  spotify: { label: "Spotify", color: "#8FE3C1" },
-  youtube: { label: "YouTube", color: "#d198e1" },
-  bandcamp: { label: "Bandcamp", color: "#5B9BD5" },
+  spotify: { label: "Spotify", color: "#1DB954" },
+  youtube: { label: "YouTube", color: "#FF0000" },
+  bandcamp: { label: "Bandcamp", color: "#1DA0C3" },
   other: { label: "Link", color: "#9A9A9A" },
 };
 
