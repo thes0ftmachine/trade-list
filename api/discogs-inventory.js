@@ -13,6 +13,22 @@
 const DISCOGS_BASE = "https://api.discogs.com";
 const PER_PAGE = 100;
 
+// The inventory endpoint's embedded release object only carries
+// { id, description, thumbnail } — there is no separate title/artist
+// field like the wantlist endpoint's basic_information gives us.
+// description comes back formatted as "Artist - Title", so split on the
+// first " - " to recover both. Some titles legitimately contain " - "
+// themselves, so we only split once (artist name won't contain it).
+function splitArtistTitle(description) {
+  if (!description) return { artist: null, title: "" };
+  const sepIndex = description.indexOf(" - ");
+  if (sepIndex === -1) return { artist: null, title: description };
+  return {
+    artist: description.slice(0, sepIndex).trim(),
+    title: description.slice(sepIndex + 3).trim(),
+  };
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -66,11 +82,13 @@ export default async function handler(req, res) {
 
       for (const listing of data.listings || []) {
         const release = listing.release || {};
+        const { artist, title } = splitArtistTitle(release.description);
         items.push({
           // Prefix so a listing id can never collide with a wantlist item's
           // release id in React key / selection maps.
           id: `inv-${listing.id}`,
-          title: release.title || "",
+          title,
+          artist,
           thumb: release.thumbnail || null,
           image_full: release.thumbnail || null,
           url: listing.uri || (release.id ? `https://www.discogs.com/release/${release.id}` : null),
