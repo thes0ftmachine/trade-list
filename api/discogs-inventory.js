@@ -12,21 +12,57 @@
 
 const DISCOGS_BASE = "https://api.discogs.com";
 const PER_PAGE = 100;
+// How many /releases/{id} lookups to run at once when backfilling artist
+// names — keeps us well under Discogs' authenticated rate limit (60/min)
+// even for a seller with a big inventory full of distinct releases.
+const ARTIST_FETCH_CONCURRENCY = 5;
 
-// The inventory endpoint's embedded release object only carries
-// { id, description, thumbnail } — there is no separate title/artist
-// field like the wantlist endpoint's basic_information gives us.
-// description comes back formatted as "Artist - Title", so split on the
-// first " - " to recover both. Some titles legitimately contain " - "
-// themselves, so we only split once (artist name won't contain it).
-function splitArtistTitle(description) {
-  if (!description) return { artist: null, title: "" };
-  const sepIndex = description.indexOf(" - ");
-  if (sepIndex === -1) return { artist: null, title: description };
-  return {
-    artist: description.slice(0, sepIndex).trim(),
-    title: description.slice(sepIndex + 3).trim(),
-  };
+// Discogs appends " (2)", " (3)", etc. to artist names to disambiguate
+// same-named artists — strip that back off for a cleaner display name.
+// (Same helper as discogs-wantlist.js.)
+const stripDisambiguation = (str) => (str || "").replace(/\s*\(\d+\)$/, "");
+
+// The inventory endpoint's embedded release object (id, title, description,
+// thumbnail, format, year) doesn't include the artist at all — description
+// is just "Title (Format details)", not "Artist - Title". So for each
+// distinct release referenced by the seller's listings, fetch the full
+// release resource (which does have an `artists` array) and cache the
+// result by release id, since the same release can appear more than once.
+async function fetchArtistsByReleaseId(releaseIds, token, userAgent) {
+  const artistByReleaseId = new Map();
+  const ids = [...releaseIds];
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < ids.length) {
+      const id = ids[cursor++];
+      try {
+        const response = await fetch(`${DISCOGS_BASE}/releases/${id}`, {
+          headers: {
+            "User-Agent": userAgent,
+            Authorization: `Discogs token=${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const artist = (data.artists || [])
+            .map((a) => stripDisambiguation(a.name))
+            .join(", ");
+          artistByReleaseId.set(id, artist || null);
+        } else {
+          artistByReleaseId.set(id, null);
+        }
+      } catch {
+        artistByReleaseId.set(id, null);
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(ARTIST_FETCH_CONCURRENCY, ids.length) }, worker)
+  );
+
+  return artistByReleaseId;
 }
 
 export default async function handler(req, res) {
@@ -82,13 +118,13 @@ export default async function handler(req, res) {
 
       for (const listing of data.listings || []) {
         const release = listing.release || {};
-        const { artist, title } = splitArtistTitle(release.description);
         items.push({
           // Prefix so a listing id can never collide with a wantlist item's
           // release id in React key / selection maps.
           id: `inv-${listing.id}`,
-          title,
-          artist,
+          releaseId: release.id || null, // used below to backfill artist, stripped before responding
+          title: release.title || "",
+          artist: null, // filled in after pagination via fetchArtistsByReleaseId
           thumb: release.thumbnail || null,
           image_full: release.thumbnail || null,
           url: listing.uri || (release.id ? `https://www.discogs.com/release/${release.id}` : null),
@@ -107,7 +143,24 @@ export default async function handler(req, res) {
       page += 1;
     } while (page <= totalPages);
 
-    return res.status(200).json({ username: username.trim(), items });
+    // Backfill artist names with one lookup per distinct release rather
+    // than one per listing, since the same release can be listed more than
+    // once (different condition/price).
+    const uniqueReleaseIds = [...new Set(items.map((it) => it.releaseId).filter(Boolean))];
+    const artistByReleaseId = await fetchArtistsByReleaseId(uniqueReleaseIds, token, userAgent);
+    // App.js only reads it.title (there's no separate artist column on
+    // trade_items), so fold the artist into the title here — same
+    // "Artist - Title" convention discogs-wantlist.js already uses.
+    const finalItems = items.map(({ releaseId, title, ...item }) => {
+      const artist = releaseId ? artistByReleaseId.get(releaseId) : null;
+      return {
+        ...item,
+        title: artist ? `${artist} - ${title}` : title,
+        artist: artist || null,
+      };
+    });
+
+    return res.status(200).json({ username: username.trim(), items: finalItems });
   } catch (err) {
     console.error("discogs-inventory error:", err);
     return res.status(500).json({ error: "Failed to fetch Discogs inventory" });
