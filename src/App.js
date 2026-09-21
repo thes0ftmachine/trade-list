@@ -874,11 +874,8 @@ export default function DiscogsTradeList() {
   // good; rows already unavailable only get the permanent option.
   const [removeModal, setRemoveModal] = useState(null);
 
-  // edit-notes popup — { id, title, value } | null
-  const [noteEditModal, setNoteEditModal] = useState(null);
-
-  // edit-condition popup (For Trade items only) — { id, title, value } | null
-  const [conditionEditModal, setConditionEditModal] = useState(null);
+  // edit-details popup (condition + notes together) — { id, title, name, condition, notes } | null
+  const [itemDetailsModal, setItemDetailsModal] = useState(null);
 
   // thumbnail lightbox — { src, alt } | null
   const [imagePreview, setImagePreview] = useState(null);
@@ -1875,41 +1872,30 @@ export default function DiscogsTradeList() {
     }
   };
 
-  const updateNotes = async (id, newNotes) => {
+  // Updates condition and notes together in a single save, so the combined
+  // edit modal only needs one round-trip instead of two.
+  const updateItemDetails = async (id, { condition, notes }) => {
     const target = entries.find((x) => x.id === id);
     if (!target || (!profile?.is_admin && target.author_id !== session?.user?.id)) {
       showToast("You can only edit your own items");
       return;
     }
-    const trimmed = (newNotes || "").trim() || null;
+    const trimmedCondition = (condition || "").trim() || null;
+    const trimmedNotes = (notes || "").trim() || null;
     const prev = entries;
-    setEntries((e) => e.map((x) => (x.id === id ? { ...x, notes: trimmed } : x)));
+    setEntries((e) =>
+      e.map((x) => (x.id === id ? { ...x, condition: trimmedCondition, notes: trimmedNotes } : x))
+    );
     try {
-      const { error } = await supabase.from(TABLE).update({ notes: trimmed }).eq("id", id);
+      const { error } = await supabase
+        .from(TABLE)
+        .update({ condition: trimmedCondition, notes: trimmedNotes })
+        .eq("id", id);
       if (error) throw error;
-      showToast("Note updated", true);
+      showToast("Item updated", true);
     } catch (e) {
       setEntries(prev);
-      showToast("Couldn't update note — try again");
-    }
-  };
-
-  const updateCondition = async (id, newCondition) => {
-    const target = entries.find((x) => x.id === id);
-    if (!target || (!profile?.is_admin && target.author_id !== session?.user?.id)) {
-      showToast("You can only edit your own items");
-      return;
-    }
-    const trimmed = (newCondition || "").trim() || null;
-    const prev = entries;
-    setEntries((e) => e.map((x) => (x.id === id ? { ...x, condition: trimmed } : x)));
-    try {
-      const { error } = await supabase.from(TABLE).update({ condition: trimmed }).eq("id", id);
-      if (error) throw error;
-      showToast("Condition updated", true);
-    } catch (e) {
-      setEntries(prev);
-      showToast("Couldn't update condition — try again");
+      showToast("Couldn't update item — try again");
     }
   };
 
@@ -3133,165 +3119,54 @@ export default function DiscogsTradeList() {
                       >
                         {g.people
                           .filter((p) => p.condition)
-                          .map((p) => {
-                            const canModify = !!session && !!profile && (profile.is_admin || p.author_id === session.user.id);
-                            return (
-                              <div
-                                key={`condition-${p.id}`}
-                                style={{
-                                  fontSize: 11.5,
-                                  color: "#D8D3CC",
-                                  lineHeight: 1.4,
-                                  display: "flex",
-                                  alignItems: "flex-start",
-                                  gap: 5,
-                                }}
-                              >
-                                <span style={{ flex: 1, minWidth: 0 }}>
-                                  <span className="mono" style={{ color: "#CEAE73", fontSize: 10.5 }}>
-                                    CONDITION
-                                    {g.people.length > 1 ? ` · ${p.name}` : ""}
-                                  </span>
-                                  <div style={{ marginTop: 2 }}>
-                                    {p.condition}
-                                  </div>
-                                </span>
-                                {/* Same pencil-next-to-value pattern as the notes edit button below. */}
-                                {canModify && (
-                          <button
-                          type="button"
-                             onClick={() => setConditionEditModal({ id: p.id, title: g.title, value: p.condition || "" })}
-                             title={`Edit condition — ${p.condition}`}
-                             aria-label={`Edit ${p.name}'s condition`}
-                             style={{
-                                border: "1px solid transparent",
-                                background: "transparent",
-                                 color: "#CEAE64",
-                                 padding: "0 4px",
-                                   minHeight: 22,
-                                borderRadius: 6,
-    cursor: "pointer",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    flexShrink: 0,
-    marginTop: 1,
-    whiteSpace: "nowrap",
-  }}
->
-<Pencil size={12} />
-<span style={{ fontSize: 10.5, letterSpacing: 0.2 }}>
-  Edit condition
-</span>
-</button>
-                                )}
+                          .map((p) => (
+                            <div
+                              key={`condition-${p.id}`}
+                              style={{
+                                fontSize: 11.5,
+                                color: "#D8D3CC",
+                                lineHeight: 1.4,
+                              }}
+                            >
+                              <span className="mono" style={{ color: "#CEAE73", fontSize: 10.5 }}>
+                                CONDITION
+                                {g.people.length > 1 ? ` · ${p.name}` : ""}
+                              </span>
+                              <div style={{ marginTop: 2 }}>
+                                {p.condition}
                               </div>
-                            );
-                          })}
+                            </div>
+                          ))}
                       </div>
                     )}
-                    {listType === "trade" &&
-                      g.people.some(
-                        (p) =>
-                          !p.condition &&
-                          !!session &&
-                          !!profile &&
-                          (profile.is_admin || p.author_id === session.user.id)
-                      ) && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 7 }}>
-                          {g.people
-                            .filter(
-                              (p) =>
-                                !p.condition &&
-                                !!session &&
-                                !!profile &&
-                                (profile.is_admin || p.author_id === session.user.id)
-                            )
-                            .map((p) => (
-                              <button
-                                key={`add-condition-${p.id}`}
-                                type="button"
-                                onClick={() => setConditionEditModal({ id: p.id, title: g.title, value: "" })}
-                                className="mono"
-                                style={{
-                                  alignSelf: "flex-start",
-                                  border: "none",
-                                  background: "transparent",
-                                  color: "#6B6B6B",
-                                  fontSize: 10.5,
-                                  padding: 0,
-                                  cursor: "pointer",
-                                  textDecoration: "underline",
-                                }}
-                              >
-                                + Add condition{g.people.length > 1 ? ` (${p.name})` : ""}
-                              </button>
-                            ))}
-                        </div>
-                      )}
                     {g.people.some((p) => p.notes) && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 7 }}>
                         {g.people
                           .filter((p) => p.notes)
-                          .map((p) => {
-                            const canModify = !!session && !!profile && (profile.is_admin || p.author_id === session.user.id);
-                            return (
-                              <div
-                                key={p.id}
-                                style={{
-                                  fontSize: 11.5,
-                                  color: "#9A9A9A",
-                                  fontStyle: "italic",
-                                  lineHeight: 1.4,
-                                  display: "flex",
-                                  alignItems: "flex-start",
-                                  gap: 5,
-                                }}
-                              >
-                                <StickyNote size={11} color="#6B6B6B" style={{ flexShrink: 0, marginTop: 3 }} />
-                                <span style={{ flex: 1, minWidth: 0 }}>
-                                  {g.people.length > 1 && (
-                                    <span className="mono" style={{ fontStyle: "normal", color: "#6B6B6B" }}>
-                                      {p.name}:{" "}
-                                    </span>
-                                  )}
-                                  {p.notes}
-                                </span>
-                                {/* Pencil sits right after the note text it edits,
-                                    rather than off in the chips row below. */}
-                                {canModify && (
-                                  <button
-  type="button"
-  onClick={() => setNoteEditModal({ id: p.id, title: g.title, value: p.notes || "" })}
-  title={`Edit note — ${p.notes}`}
-  aria-label={`Edit ${p.name}'s note`}
-  style={{
-    border: "1px solid transparent",
-    background: "transparent",
-    color: "#dad7a6",
-    padding: "0 4px",
-    minHeight: 22,
-    borderRadius: 6,
-    cursor: "pointer",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    flexShrink: 0,
-    marginTop: 1,
-    whiteSpace: "nowrap",
-  }}
->
-  <Pencil size={12} />
-  <span style={{ fontSize: 10.5, letterSpacing: 0.2 }}>
-    Edit note
-  </span>
-</button>
+                          .map((p) => (
+                            <div
+                              key={p.id}
+                              style={{
+                                fontSize: 11.5,
+                                color: "#9A9A9A",
+                                fontStyle: "italic",
+                                lineHeight: 1.4,
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 5,
+                              }}
+                            >
+                              <StickyNote size={11} color="#6B6B6B" style={{ flexShrink: 0, marginTop: 3 }} />
+                              <span style={{ flex: 1, minWidth: 0 }}>
+                                {g.people.length > 1 && (
+                                  <span className="mono" style={{ fontStyle: "normal", color: "#6B6B6B" }}>
+                                    {p.name}:{" "}
+                                  </span>
                                 )}
-                              </div>
-                            );
-                          })}
+                                {p.notes}
+                              </span>
+                            </div>
+                          ))}
                       </div>
                     )}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6, rowGap: 8 }}>
@@ -3431,45 +3306,6 @@ export default function DiscogsTradeList() {
                                   </button>
                                 ))}
                             </div>
-
-                            {/* Only shown pre-note — once a note exists, its pencil
-                                lives next to the note text above instead. The
-                                trash can now sits in the right-hand slot with
-                                the comment button. */}
-                            {canModify && !p.notes && (
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 6,
-                                  marginLeft: "auto",
-                                  flexShrink: 0,
-                                }}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => setNoteEditModal({ id: p.id, title: g.title, value: p.notes || "" })}
-                                  title="Add a note"
-                                  aria-label={`Add ${p.name}'s note`}
-                                  style={{
-                                    border: "1px solid transparent",
-                                    background: "transparent",
-                                    color: "#eae135",
-                                    padding: 0,
-                                    width: 34,
-                                    height: 34,
-                                    borderRadius: 7,
-                                    cursor: "pointer",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  <Pencil size={14} />
-                                </button>
-                              </div>
-                            )}
                           </div>
                         );
                       })}
@@ -3524,6 +3360,38 @@ export default function DiscogsTradeList() {
                             </span>
                           )}
                           <TradeComments itemId={p.id} session={session} profile={profile} popover />
+                          {canModify && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setItemDetailsModal({
+                                  id: p.id,
+                                  title: g.title,
+                                  name: p.name,
+                                  condition: p.condition || "",
+                                  notes: p.notes || "",
+                                })
+                              }
+                              title={`Edit ${p.name}'s condition & notes`}
+                              aria-label={`Edit ${p.name}'s condition & notes`}
+                              style={{
+                                border: "1px solid #4A3B2A",
+                                background: "rgba(157,112,71,0.08)",
+                                color: "#CEAE64",
+                                padding: 0,
+                                width: 26,
+                                height: 26,
+                                borderRadius: 7,
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                              }}
+                            >
+                              <Pencil size={13} strokeWidth={2.25} />
+                            </button>
+                          )}
                           {canModify && (
                             <button
                               type="button"
@@ -5354,9 +5222,9 @@ export default function DiscogsTradeList() {
         </div>
       )}
 
-      {noteEditModal && (
+      {itemDetailsModal && (
         <div
-          onClick={() => setNoteEditModal(null)}
+          onClick={() => setItemDetailsModal(null)}
           style={{
             position: "fixed",
             inset: 0,
@@ -5381,18 +5249,52 @@ export default function DiscogsTradeList() {
             }}
           >
             <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC", marginBottom: 4 }}>
-              {noteEditModal.title}
+              {itemDetailsModal.title}
             </div>
-            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 12 }}>
-              Edit note
+            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 14 }}>
+              Edit{itemDetailsModal.name ? ` — ${itemDetailsModal.name}` : ""}
             </p>
 
+            <label
+              className="mono"
+              style={{ fontSize: 10.5, color: "#CEAE73", display: "block", marginBottom: 6 }}
+            >
+              CONDITION
+            </label>
+            <p style={{ fontSize: 11.5, color: "#6B6B6B", margin: "0 0 8px", lineHeight: 1.4 }}>
+              Use vinyl/cover with listing condition, and add as much detail as you'd like.
+            </p>
+            <input
+              value={itemDetailsModal.condition}
+              onChange={(e) => setItemDetailsModal({ ...itemDetailsModal, condition: e.target.value })}
+              placeholder="e.g. VG+/VG+, light shelf wear, plays clean"
+              autoFocus
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #2A2A2A",
+                background: "#000000",
+                color: "#F5F0EC",
+                fontSize: 14,
+                boxSizing: "border-box",
+                outline: "none",
+                fontFamily: "'Barlow', sans-serif",
+                marginBottom: 16,
+              }}
+            />
+
+            <label
+              className="mono"
+              style={{ fontSize: 10.5, color: "#CEAE73", display: "block", marginBottom: 6 }}
+            >
+              NOTES
+            </label>
             <textarea
-              value={noteEditModal.value}
-              onChange={(e) => setNoteEditModal({ ...noteEditModal, value: e.target.value })}
+              value={itemDetailsModal.notes}
+              onChange={(e) => setItemDetailsModal({ ...itemDetailsModal, notes: e.target.value })}
               placeholder="Any pressing is fine / needs OBI / would pay $___"
               rows={3}
-              autoFocus
               style={{
                 width: "100%",
                 padding: "10px 12px",
@@ -5413,8 +5315,11 @@ export default function DiscogsTradeList() {
               <button
                 type="button"
                 onClick={async () => {
-                  await updateNotes(noteEditModal.id, noteEditModal.value);
-                  setNoteEditModal(null);
+                  await updateItemDetails(itemDetailsModal.id, {
+                    condition: itemDetailsModal.condition,
+                    notes: itemDetailsModal.notes,
+                  });
+                  setItemDetailsModal(null);
                 }}
                 style={{
                   flex: 1,
@@ -5432,105 +5337,7 @@ export default function DiscogsTradeList() {
               </button>
               <button
                 type="button"
-                onClick={() => setNoteEditModal(null)}
-                className="mono"
-                style={{
-                  padding: "10px 16px",
-                  borderRadius: 8,
-                  border: "1px solid #2A2A2A",
-                  background: "transparent",
-                  color: "#9A9A9A",
-                  fontSize: 12.5,
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {conditionEditModal && (
-        <div
-          onClick={() => setConditionEditModal(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 20,
-            zIndex: 1000,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 380,
-              background: "#121212",
-              border: "1px solid #2A2A2A",
-              borderRadius: 12,
-              padding: 20,
-              boxSizing: "border-box",
-            }}
-          >
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC", marginBottom: 4 }}>
-              {conditionEditModal.title}
-            </div>
-            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 12 }}>
-              Edit condition
-            </p>
-            <p style={{ fontSize: 11.5, color: "#6B6B6B", margin: "0 0 8px", lineHeight: 1.4 }}>
-              Use vinyl/cover with listing condition, and add as much detail as you'd like.
-            </p>
-
-            <input
-              value={conditionEditModal.value}
-              onChange={(e) => setConditionEditModal({ ...conditionEditModal, value: e.target.value })}
-              placeholder="e.g. VG+/VG+, light shelf wear, plays clean"
-              autoFocus
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 8,
-                border: "1px solid #2A2A2A",
-                background: "#000000",
-                color: "#F5F0EC",
-                fontSize: 14,
-                boxSizing: "border-box",
-                outline: "none",
-                fontFamily: "'Barlow', sans-serif",
-                marginBottom: 14,
-              }}
-            />
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                type="button"
-                onClick={async () => {
-                  await updateCondition(conditionEditModal.id, conditionEditModal.value);
-                  setConditionEditModal(null);
-                }}
-                style={{
-                  flex: 1,
-                  padding: "10px 16px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: "#9D7047",
-                  color: "#F5F0EC",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: "pointer",
-                }}
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={() => setConditionEditModal(null)}
+                onClick={() => setItemDetailsModal(null)}
                 className="mono"
                 style={{
                   padding: "10px 16px",
