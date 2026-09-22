@@ -2240,12 +2240,12 @@ export default function DiscogsTradeList() {
                   <strong style={{ fontSize: 13.5, color: "var(--text)" }}>{profile.display_name}</strong>
                   {profile.is_admin && <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9.5, color: "#C99A3A" }}><ShieldCheck size={11} /> ADMIN</span>}
                 </div>
-                <div className="mono" style={{ color: "#5F5F5F", fontSize: 9.5, marginTop: 2 }}>{session.user.email}</div>
+                <div className="mono" style={{ color: "#5F5F5F", fontSize: 9.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session.user.email}</div>
               </div>
-              <button type="button" onClick={openProfileEdit} title="Edit your profile" className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid var(--line)", borderRadius: 7, background: "transparent", color: "var(--muted)", padding: "6px 8px", fontSize: 10.5, cursor: "pointer" }}>
+              <button type="button" onClick={openProfileEdit} title="Edit your profile" className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, flexShrink: 0, border: "1px solid var(--line)", borderRadius: 7, background: "transparent", color: "var(--muted)", padding: "6px 8px", fontSize: 10.5, cursor: "pointer" }}>
                 <Pencil size={12} /> Profile
               </button>
-              <button type="button" onClick={signOut} title="Sign out" className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid var(--line)", borderRadius: 7, background: "transparent", color: "var(--muted)", padding: "6px 8px", fontSize: 10.5, cursor: "pointer" }}>
+              <button type="button" onClick={signOut} title="Sign out" className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, flexShrink: 0, border: "1px solid var(--line)", borderRadius: 7, background: "transparent", color: "var(--muted)", padding: "6px 8px", fontSize: 10.5, cursor: "pointer" }}>
                 <LogOut size={12} /> Sign out
               </button>
             </div>
