@@ -1407,12 +1407,27 @@ export default function DiscogsTradeList() {
   };
 
   const FORMAT_KEYWORDS = ["Vinyl", "CD", "Cassette", "File", "DVD", "Blu-ray", "Box Set"];
+  // Discogs formats come back noisy — e.g. ["Vinyl", "LP", "Album",
+  // "Reissue", "Remastered", "180 gram", "Gatefold"] — but all that ever
+  // matters here is Vinyl, CD, or Cassette. An exact Discogs format name
+  // (Vinyl/CD/Cassette) wins first since it's the most reliable signal;
+  // otherwise fall back to loose keyword matches (LP/Album/disc sizes ->
+  // Vinyl, etc.) so odd cases still land on something sensible instead of
+  // showing the whole descriptor list.
   const deriveFormat = (item) => {
     if (!item.format) return null;
-    if (typeof item.format === "string") return item.format;
-    if (!item.format.length) return null;
-    const match = item.format.find((f) => FORMAT_KEYWORDS.includes(f));
-    return match || item.format[0];
+    const list = typeof item.format === "string" ? [item.format] : item.format;
+    if (!list || !list.length) return null;
+    const joined = list.join(" ").toLowerCase();
+
+    const exact = list.find((f) => FORMAT_KEYWORDS.includes(f));
+    if (exact === "Vinyl" || exact === "CD" || exact === "Cassette") return exact;
+
+    if (/\bcds?\b|compact disc/.test(joined)) return "CD";
+    if (/cassette|\bcass\b|\btape\b/.test(joined)) return "Cassette";
+    if (/\bvinyl\b|\blp\b|\balbum\b|\b7"|\b10"|\b12"|\b45\s?rpm\b|\b33\s?rpm\b/.test(joined)) return "Vinyl";
+
+    return exact || list[0];
   };
   const formatColor = (format) => {
     if (!format) return "var(--muted)";
@@ -2512,7 +2527,7 @@ export default function DiscogsTradeList() {
                             MASTER — ANY PRESSING
                           </span>
                         )}
-                        {item.year || ""} {item.format ? `· ${item.format.join(", ")}` : ""}
+                        {item.year || ""} {deriveFormat(item) ? `· ${deriveFormat(item)}` : ""}
                       </div>
                     </div>
                     <button
