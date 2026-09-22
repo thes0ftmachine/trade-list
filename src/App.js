@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect, useCallback } from "react";
-import { Search, Disc3, User, Plus, X, Trash2, RefreshCw, ListMusic, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag, AtSign, Headphones, Heart, PlayCircle, Link2, Music2 } from "lucide-react";
+import { Search, Disc3, User, Plus, X, Trash2, RefreshCw, ListMusic, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag, AtSign, Headphones, Heart, PlayCircle, Link2, Music2, Moon, Sun } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { Analytics } from "@vercel/analytics/react";
 
@@ -40,7 +40,7 @@ const normalizeStatus = (status) => (status === "pending" ? "claimed" : status);
 const LISTING_TYPE_CONFIG = {
   trade: { label: "Trade", icon: Repeat, color: "#5B9BD5" },
   sale: { label: "Sale", icon: Tag, color: "#8FE3C1" },
-  both: { label: "Sale or Trade", icon: Tag, color: "#CEAE73" },
+  both: { label: "Sale or Trade", icon: Tag, color: "var(--gold)" },
 };
 
 // The Trade List logo — cat, records, wordmark baked into the photo itself,
@@ -50,11 +50,11 @@ const FAVICON_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA2YAAALoCAIAA
 
 // palette — dark, single red accent, same visual language throughout
 const COL = {
- bg: "#574A4C",
-  panel: "#39302B",
-  panelBorder: "#2A2A2A",
+ bg: "var(--warm-muted)",
+  panel: "var(--warm-dark)",
+  panelBorder: "var(--line)",
   line: "#eea450",
-  red: "#9D7047",
+  red: "var(--accent)",
   redDeep: "#7A0E12",
   text: "#f8f3a5",
   muted: "#878768",
@@ -89,7 +89,7 @@ const LISTENING_PLATFORMS = {
   spotify: { label: "Spotify", color: "#1DB954" },
   youtube: { label: "YouTube", color: "#FF0000" },
   bandcamp: { label: "Bandcamp", color: "#1DA0C3" },
-  other: { label: "Link", color: "#9A9A9A" },
+  other: { label: "Link", color: "var(--muted)" },
 };
 
 function detectListeningPlatform(url) {
@@ -122,13 +122,13 @@ function useFonts() {
     }
   }, []);
 }
-function usePageChrome() {
+function usePageChrome(theme = "dark") {
   useEffect(() => {
     const prevHtmlBg = document.documentElement.style.background;
     const prevBodyBg = document.body.style.background;
     const prevBodyMargin = document.body.style.margin;
-    document.documentElement.style.background = "#000000";
-    document.body.style.background = "#000000";
+    document.documentElement.style.background = theme === "light" ? "#F4F0E8" : "var(--bg)";
+    document.body.style.background = theme === "light" ? "#F4F0E8" : "var(--bg)";
     document.body.style.margin = "0";
 
     let meta = document.querySelector('meta[name="viewport"]');
@@ -159,7 +159,7 @@ function usePageChrome() {
       if (meta && prevContent !== null) meta.setAttribute("content", prevContent);
       if (favicon && prevFaviconHref !== null) favicon.setAttribute("href", prevFaviconHref);
     };
-  }, []);
+  }, [theme]);
 }
 
 function RecordThumb({ src, alt, size = 56, onClick }) {
@@ -173,8 +173,8 @@ function RecordThumb({ src, alt, size = 56, onClick }) {
         borderRadius: 6,
         overflow: "hidden",
         flexShrink: 0,
-        border: "1px solid #2A2A2A",
-        background: "#000000",
+        border: "1px solid var(--line)",
+        background: "var(--bg)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -185,7 +185,7 @@ function RecordThumb({ src, alt, size = 56, onClick }) {
       {src ? (
         <img src={src} alt={alt} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       ) : (
-        <Disc3 size={size * 0.5} color="#9D7047" strokeWidth={1.5} />
+        <Disc3 size={size * 0.5} color="var(--accent)" strokeWidth={1.5} />
       )}
     </div>
   );
@@ -434,7 +434,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
     const linkButtonStyle = {
       border: "none",
       background: "transparent",
-      color: "#77736E",
+      color: "var(--muted-3)",
       padding: "4px 0 0",
       fontSize: 9.5,
       cursor: "pointer",
@@ -445,7 +445,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
         <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 7, flexWrap: "wrap" }}>
-              <strong style={{ fontSize: 11.5, color: "#D8D3CC" }}>{comment.author_name}</strong>
+              <strong style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>{comment.author_name}</strong>
               <span className="mono" style={{ fontSize: 9.5, color: "#5F5F5F" }}>
                 {comment.created_at ? new Date(comment.created_at).toLocaleString() : ""}
               </span>
@@ -463,9 +463,9 @@ function TradeComments({ itemId, session, profile, popover = false }) {
                     resize: "vertical",
                     padding: "8px 10px",
                     borderRadius: 7,
-                    border: "1px solid #2A2A2A",
-                    background: "#000000",
-                    color: "#F5F0EC",
+                    border: "1px solid var(--line)",
+                    background: "var(--bg)",
+                    color: "var(--text)",
                     fontSize: 12.5,
                     outline: "none",
                     fontFamily: "'Barlow', sans-serif",
@@ -480,8 +480,8 @@ function TradeComments({ itemId, session, profile, popover = false }) {
                       border: "none",
                       borderRadius: 7,
                       padding: "5px 10px",
-                      background: editBody.trim() && !savingEdit ? "#9D7047" : "#3A3A3A",
-                      color: editBody.trim() && !savingEdit ? "#F5F0EC" : "#6B6B6B",
+                      background: editBody.trim() && !savingEdit ? "var(--accent)" : "var(--disabled-bg)",
+                      color: editBody.trim() && !savingEdit ? "var(--text)" : "var(--muted-2)",
                       fontSize: 11.5,
                       fontWeight: 600,
                       cursor: editBody.trim() && !savingEdit ? "pointer" : "not-allowed",
@@ -495,7 +495,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
                 </div>
               </div>
             ) : (
-              <div style={{ fontSize: 12.5, color: "#BDB8B2", lineHeight: 1.45, marginTop: 2, whiteSpace: "pre-wrap" }}>
+              <div style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.45, marginTop: 2, whiteSpace: "pre-wrap" }}>
                 {comment.body}
               </div>
             )}
@@ -516,7 +516,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
             {confirming && (
               <div
                 className="mono"
-                style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 5, fontSize: 9.5, color: "#8A8580" }}
+                style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 5, fontSize: 9.5, color: "var(--muted-4)" }}
               >
                 <span>
                   Delete this {isReply ? "reply" : "comment"}
@@ -526,7 +526,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
                   type="button"
                   onClick={() => deleteComment(comment)}
                   className="mono"
-                  style={{ border: "none", background: "transparent", color: "#9D7047", padding: 0, fontSize: 9.5, fontWeight: 700, cursor: "pointer" }}
+                  style={{ border: "none", background: "transparent", color: "var(--accent)", padding: 0, fontSize: 9.5, fontWeight: 700, cursor: "pointer" }}
                 >
                   Delete
                 </button>
@@ -534,7 +534,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
                   type="button"
                   onClick={() => setPendingDelete(null)}
                   className="mono"
-                  style={{ border: "none", background: "transparent", color: "#77736E", padding: 0, fontSize: 9.5, cursor: "pointer" }}
+                  style={{ border: "none", background: "transparent", color: "var(--muted-3)", padding: 0, fontSize: 9.5, cursor: "pointer" }}
                 >
                   Cancel
                 </button>
@@ -547,7 +547,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
               onClick={() => setPendingDelete(confirming ? null : comment.id)}
               title="Delete comment"
               aria-label="Delete comment"
-              style={{ border: "none", background: "transparent", color: confirming ? "#9D7047" : "#6B6B6B", padding: 2, cursor: "pointer" }}
+              style={{ border: "none", background: "transparent", color: confirming ? "var(--accent)" : "var(--muted-2)", padding: 2, cursor: "pointer" }}
             >
               <X size={13} strokeWidth={2.5} />
             </button>
@@ -559,7 +559,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
             style={{
               marginTop: 7,
               paddingLeft: 10,
-              borderLeft: "1px solid #2A2A2A",
+              borderLeft: "1px solid var(--line)",
               display: "flex",
               flexDirection: "column",
               gap: 8,
@@ -582,9 +582,9 @@ function TradeComments({ itemId, session, profile, popover = false }) {
           display: "inline-flex",
           alignItems: "center",
           gap: 6,
-          border: "1px solid #2A2A2A",
-          background: "#121212",
-          color: expanded ? "#F5F0EC" : "#9A9A9A",
+          border: "1px solid var(--line)",
+          background: "var(--surface)",
+          color: expanded ? "var(--text)" : "var(--muted)",
           borderRadius: 20,
           padding: "4px 9px",
           fontSize: 10.5,
@@ -605,15 +605,15 @@ function TradeComments({ itemId, session, profile, popover = false }) {
                   right: 0,
                   marginTop: 8,
                   width: "min(360px, 78vw)",
-                  border: "1px solid #2A2A2A",
+                  border: "1px solid var(--line)",
                   borderRadius: 9,
-                  background: "#0A0A0A",
+                  background: "var(--bg-deep)",
                   padding: 10,
                   textAlign: "left",
                   boxShadow: "0 10px 28px rgba(0,0,0,0.65)",
                   zIndex: 20,
                 }
-              : { marginTop: 8, border: "1px solid #2A2A2A", borderRadius: 9, background: "#0A0A0A", padding: 10 }
+              : { marginTop: 8, border: "1px solid var(--line)", borderRadius: 9, background: "var(--bg-deep)", padding: 10 }
           }
         >
           {session && profile && (
@@ -625,9 +625,9 @@ function TradeComments({ itemId, session, profile, popover = false }) {
                 marginBottom: 9,
                 padding: "6px 8px",
                 borderRadius: 6,
-                background: "#121212",
-                border: "1px solid #242424",
-                color: "#8A8580",
+                background: "var(--surface)",
+                border: "1px solid var(--line-strong)",
+                color: "var(--muted-4)",
                 fontSize: 10,
                 lineHeight: 1.3,
                 cursor: notificationLoading || notificationSaving ? "default" : "pointer",
@@ -643,7 +643,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
                   width: 12,
                   height: 12,
                   margin: 0,
-                  accentColor: "#9D7047",
+                  accentColor: "var(--accent)",
                   flexShrink: 0,
                 }}
               />
@@ -657,9 +657,9 @@ function TradeComments({ itemId, session, profile, popover = false }) {
           )}
 
           {loading ? (
-            <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>Loading comments…</div>
+            <div className="mono" style={{ fontSize: 10.5, color: "var(--muted-2)" }}>Loading comments…</div>
           ) : visibleComments.length === 0 ? (
-            <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B", marginBottom: session ? 9 : 0 }}>
+            <div className="mono" style={{ fontSize: 10.5, color: "var(--muted-2)", marginBottom: session ? 9 : 0 }}>
               No comments yet.
             </div>
           ) : (
@@ -680,18 +680,18 @@ function TradeComments({ itemId, session, profile, popover = false }) {
                     marginBottom: 6,
                     padding: "6px 8px",
                     borderRadius: 6,
-                    background: "#121212",
-                    border: "1px solid #242424",
+                    background: "var(--surface)",
+                    border: "1px solid var(--line-strong)",
                   }}
                 >
-                  <div className="mono" style={{ fontSize: 9.5, color: "#8A8580", minWidth: 0 }}>
-                    Replying to <strong style={{ color: "#BDB8B2" }}>{replyTo.author_name}</strong>
+                  <div className="mono" style={{ fontSize: 9.5, color: "var(--muted-4)", minWidth: 0 }}>
+                    Replying to <strong style={{ color: "var(--text-secondary)" }}>{replyTo.author_name}</strong>
                   </div>
                   <button
                     type="button"
                     onClick={() => { setReplyTo(null); setBody(""); }}
                     className="mono"
-                    style={{ border: "none", background: "transparent", color: "#77736E", padding: 0, fontSize: 9.5, cursor: "pointer" }}
+                    style={{ border: "none", background: "transparent", color: "var(--muted-3)", padding: 0, fontSize: 9.5, cursor: "pointer" }}
                   >
                     Cancel
                   </button>
@@ -710,9 +710,9 @@ function TradeComments({ itemId, session, profile, popover = false }) {
                     resize: "vertical",
                     padding: "8px 10px",
                     borderRadius: 7,
-                    border: "1px solid #2A2A2A",
-                    background: "#000000",
-                    color: "#F5F0EC",
+                    border: "1px solid var(--line)",
+                    background: "var(--bg)",
+                    color: "var(--text)",
                     fontSize: 12.5,
                     outline: "none",
                     fontFamily: "'Barlow', sans-serif",
@@ -726,8 +726,8 @@ function TradeComments({ itemId, session, profile, popover = false }) {
                     border: "none",
                     borderRadius: 7,
                     padding: "8px 11px",
-                    background: body.trim() && !submitting ? "#9D7047" : "#3A3A3A",
-                    color: body.trim() && !submitting ? "#F5F0EC" : "#6B6B6B",
+                    background: body.trim() && !submitting ? "var(--accent)" : "var(--disabled-bg)",
+                    color: body.trim() && !submitting ? "var(--text)" : "var(--muted-2)",
                     fontSize: 12,
                     fontWeight: 600,
                     cursor: body.trim() && !submitting ? "pointer" : "not-allowed",
@@ -739,7 +739,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
               </div>
             </div>
           ) : (
-            <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>
+            <div className="mono" style={{ fontSize: 10.5, color: "var(--muted-2)" }}>
               Sign in above to comment.
             </div>
           )}
@@ -750,8 +750,23 @@ function TradeComments({ itemId, session, profile, popover = false }) {
 }
 
 export default function DiscogsTradeList() {
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem("trade-list-theme") === "light" ? "light" : "dark";
+    } catch {
+      return "dark";
+    }
+  });
+
   useFonts();
-  usePageChrome();
+  usePageChrome(theme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem("trade-list-theme", theme);
+    } catch {}
+  }, [theme]);
 
   // which half of the site: 'trade' (For Trade, default) or 'seeking' (In Search Of)
   const [listType, setListType] = useState("trade");
@@ -1367,14 +1382,14 @@ export default function DiscogsTradeList() {
     return match || item.format[0];
   };
   const formatColor = (format) => {
-    if (!format) return "#9A9A9A";
+    if (!format) return "var(--muted)";
     const f = format.toLowerCase();
     const hasVinyl = /vinyl/.test(f);
     const hasCD = /\bcds?\b/.test(f);
     if (hasVinyl && hasCD) return "#BA86B6";
     if (hasVinyl) return "#5B9BD5";
     if (hasCD) return "#e04730";
-    return "#9A9A9A";
+    return "var(--muted)";
   };
 
   // "" -> null (no price entered); anything that isn't a valid, non-negative
@@ -2049,17 +2064,39 @@ export default function DiscogsTradeList() {
     <div
       style={{
         fontFamily: "'Barlow', sans-serif",
-        background: "#000000",
+        background: "var(--bg)",
         minHeight: "100vh",
-        color: "#F5F0EC",
+        color: "var(--text)",
         padding: "0",
       }}
     >
       <style>{`
+        :root {
+          --bg: #000000; --bg-deep: #0A0A0A; --surface-alt: #0D0D0D; --surface: #121212;
+          --accent-soft: #1A0E0F; --line-soft: #1E1E1E; --line-strong: #242424; --line: #2A2A2A;
+          --disabled-bg: #3A3A3A; --muted-border: #4A4A4A; --accent-dark-soft: #4A3B2A;
+          --warm-dark: #39302B; --warm-muted: #574A4C; --muted-2: #6B6B6B; --muted-3: #77736E;
+          --muted-4: #8A8580; --muted-5: #8A8A8A; --muted: #9A9A9A; --accent: #9D7047;
+          --gold: #CEAE73; --text-secondary: #BDB8B2; --text-tertiary: #D8D3CC; --text: #F5F0EC;
+        }
+        [data-theme="light"] {
+          --bg: #F4F0E8; --bg-deep: #EDE7DC; --surface-alt: #F8F4EC; --surface: #FFFDF8;
+          --accent-soft: #F2E6DE; --line-soft: #E7DED2; --line-strong: #D8CEC0; --line: #CEC3B5;
+          --disabled-bg: #D8D0C5; --muted-border: #BEB3A6; --accent-dark-soft: #E9DCCB;
+          --warm-dark: #E5DBD0; --warm-muted: #CFC3B8; --muted-2: #81786E; --muted-3: #716960;
+          --muted-4: #686159; --muted-5: #5F5851; --muted: #6F675E; --accent: #875B3A;
+          --gold: #936B32; --text-secondary: #4F4942; --text-tertiary: #39342F; --text: #26221E;
+        }
+        .mood-toggle { display:inline-flex; align-items:center; gap:8px; padding:6px 9px; border:1px solid var(--line); border-radius:999px; background:var(--surface); color:var(--muted); box-shadow:0 2px 10px rgba(0,0,0,.12); }
+        .mood-track { position:relative; width:38px; height:20px; border:1px solid var(--line); border-radius:999px; background:var(--line-soft); cursor:pointer; padding:0; flex-shrink:0; }
+        .mood-thumb { position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:var(--muted); transition:transform .18s ease, background .18s ease; }
+        .mood-track.light .mood-thumb { transform:translateX(18px); background:var(--accent); }
+        .mood-toggle svg { flex-shrink:0; }
+      `}</style>
         .record-thumb:hover { opacity: 0.85; }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        ::placeholder { color: #9A9A9A; opacity: 1; }
+        ::placeholder { color: var(--muted); opacity: 1; }
         input, textarea { font-family: 'Barlow', sans-serif; }
         .mono { font-family: 'Space Mono', monospace; }
         .tab-btn { transition: all 0.15s ease; }
@@ -2099,23 +2136,40 @@ export default function DiscogsTradeList() {
           />
         </div>
 
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 18 }}>
+          <div className="mood-toggle">
+            <Moon size={13} aria-hidden="true" />
+            <span className="mono" style={{ fontSize: 9.5, letterSpacing: 1.2 }}>MOOD</span>
+            <button
+              type="button"
+              className={`mood-track ${theme === "light" ? "light" : ""}`}
+              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+              aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+              aria-pressed={theme === "light"}
+            >
+              <span className="mood-thumb" />
+            </button>
+            <Sun size={14} aria-hidden="true" />
+          </div>
+        </div>
+
         {/* Account */}
-        <div style={{ marginBottom: 18, padding: 12, border: "1px solid #2A2A2A", borderRadius: 10, background: "#0D0D0D" }}>
+        <div style={{ marginBottom: 18, padding: 12, border: "1px solid var(--line)", borderRadius: 10, background: "var(--surface-alt)" }}>
           {!session ? (
             <>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: authSent ? 8 : 6 }}>
-                <Mail size={15} color="#9D7047" />
-                <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.8, color: "#D8D3CC" }}>SIGN IN TO ADD ITEMS</span>
+                <Mail size={15} color="var(--accent)" />
+                <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.8, color: "var(--text-tertiary)" }}>SIGN IN TO ADD ITEMS</span>
               </div>
               {authSent ? (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <span className="mono" style={{ fontSize: 10.5, color: "#6FA987", lineHeight: 1.45 }}>Magic link sent to {authEmail}. Check your email, then return here.</span>
-                  <button type="button" onClick={() => setAuthSent(false)} className="mono" style={{ border: "none", background: "transparent", color: "#9A9A9A", cursor: "pointer", fontSize: 10.5 }}>Change email</button>
+                  <button type="button" onClick={() => setAuthSent(false)} className="mono" style={{ border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 10.5 }}>Change email</button>
                 </div>
               ) : (
                 <div style={{ display: "flex", gap: 7 }}>
-                  <input type="email" value={authEmail} onChange={(e) => { setAuthEmail(e.target.value); setAuthError(null); }} onKeyDown={(e) => { if (e.key === "Enter") sendMagicLink(); }} placeholder="you@example.com" style={{ flex: 1, minWidth: 0, padding: "9px 10px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13.5, outline: "none" }} />
-                  <button type="button" onClick={sendMagicLink} disabled={authLoading} style={{ border: "none", borderRadius: 7, padding: "0 12px", background: "#9D7047", color: "#F5F0EC", fontWeight: 600, fontSize: 12.5, cursor: authLoading ? "wait" : "pointer" }}>
+                  <input type="email" value={authEmail} onChange={(e) => { setAuthEmail(e.target.value); setAuthError(null); }} onKeyDown={(e) => { if (e.key === "Enter") sendMagicLink(); }} placeholder="you@example.com" style={{ flex: 1, minWidth: 0, padding: "9px 10px", borderRadius: 7, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--text)", fontSize: 13.5, outline: "none" }} />
+                  <button type="button" onClick={sendMagicLink} disabled={authLoading} style={{ border: "none", borderRadius: 7, padding: "0 12px", background: "var(--accent)", color: "var(--text)", fontWeight: 600, fontSize: 12.5, cursor: authLoading ? "wait" : "pointer" }}>
                     {authLoading ? <RefreshCw size={14} className="spin" /> : "Send link"}
                   </button>
                 </div>
@@ -2123,21 +2177,21 @@ export default function DiscogsTradeList() {
               {authError && <div className="mono" style={{ color: "#E8B7B7", fontSize: 10.5, marginTop: 7 }}>{authError}</div>}
             </>
           ) : profileLoading ? (
-            <div className="mono" style={{ color: "#9A9A9A", fontSize: 10.5 }}>Loading your account…</div>
+            <div className="mono" style={{ color: "var(--muted)", fontSize: 10.5 }}>Loading your account…</div>
           ) : !profile ? (
             <>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <User size={15} color="#9D7047" />
-                <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.8, color: "#D8D3CC" }}>CHOOSE YOUR DISPLAY NAME</span>
+                <User size={15} color="var(--accent)" />
+                <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 0.8, color: "var(--text-tertiary)" }}>CHOOSE YOUR DISPLAY NAME</span>
               </div>
               <div style={{ display: "flex", gap: 7 }}>
-                <input value={profileName} onChange={(e) => { setProfileName(e.target.value); setAuthError(null); }} onKeyDown={(e) => { if (e.key === "Enter") saveProfile(); }} placeholder="e.g. Jamie R." style={{ flex: 1, minWidth: 0, padding: "9px 10px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13.5, outline: "none" }} />
-                <button type="button" onClick={saveProfile} disabled={profileSaving || !profileName.trim()} style={{ border: "none", borderRadius: 7, padding: "0 12px", background: profileName.trim() ? "#9D7047" : "#3A3A3A", color: profileName.trim() ? "#F5F0EC" : "#6B6B6B", fontWeight: 600, fontSize: 12.5, cursor: profileSaving ? "wait" : "pointer" }}>
+                <input value={profileName} onChange={(e) => { setProfileName(e.target.value); setAuthError(null); }} onKeyDown={(e) => { if (e.key === "Enter") saveProfile(); }} placeholder="e.g. Jamie R." style={{ flex: 1, minWidth: 0, padding: "9px 10px", borderRadius: 7, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--text)", fontSize: 13.5, outline: "none" }} />
+                <button type="button" onClick={saveProfile} disabled={profileSaving || !profileName.trim()} style={{ border: "none", borderRadius: 7, padding: "0 12px", background: profileName.trim() ? "var(--accent)" : "var(--disabled-bg)", color: profileName.trim() ? "var(--text)" : "var(--muted-2)", fontWeight: 600, fontSize: 12.5, cursor: profileSaving ? "wait" : "pointer" }}>
                   {profileSaving ? <RefreshCw size={14} className="spin" /> : "Continue"}
                 </button>
               </div>
               {authError && <div className="mono" style={{ color: "#E8B7B7", fontSize: 10.5, marginTop: 7 }}>{authError}</div>}
-              <div className="mono" style={{ color: "#6B6B6B", fontSize: 9.5, marginTop: 7 }}>{session.user.email}</div>
+              <div className="mono" style={{ color: "var(--muted-2)", fontSize: 9.5, marginTop: 7 }}>{session.user.email}</div>
             </>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -2145,22 +2199,22 @@ export default function DiscogsTradeList() {
                 <img
                   src={profile.avatar_url}
                   alt=""
-                  style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid #2A2A2A" }}
+                  style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid var(--line)" }}
                 />
               ) : (
-                <User size={15} color="#9D7047" />
+                <User size={15} color="var(--accent)" />
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                  <strong style={{ fontSize: 13.5, color: "#F5F0EC" }}>{profile.display_name}</strong>
+                  <strong style={{ fontSize: 13.5, color: "var(--text)" }}>{profile.display_name}</strong>
                   {profile.is_admin && <span className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9.5, color: "#C99A3A" }}><ShieldCheck size={11} /> ADMIN</span>}
                 </div>
                 <div className="mono" style={{ color: "#5F5F5F", fontSize: 9.5, marginTop: 2 }}>{session.user.email}</div>
               </div>
-              <button type="button" onClick={openProfileEdit} title="Edit your profile" className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid #2A2A2A", borderRadius: 7, background: "transparent", color: "#9A9A9A", padding: "6px 8px", fontSize: 10.5, cursor: "pointer" }}>
+              <button type="button" onClick={openProfileEdit} title="Edit your profile" className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid var(--line)", borderRadius: 7, background: "transparent", color: "var(--muted)", padding: "6px 8px", fontSize: 10.5, cursor: "pointer" }}>
                 <Pencil size={12} /> Profile
               </button>
-              <button type="button" onClick={signOut} title="Sign out" className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid #2A2A2A", borderRadius: 7, background: "transparent", color: "#9A9A9A", padding: "6px 8px", fontSize: 10.5, cursor: "pointer" }}>
+              <button type="button" onClick={signOut} title="Sign out" className="mono" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid var(--line)", borderRadius: 7, background: "transparent", color: "var(--muted)", padding: "6px 8px", fontSize: 10.5, cursor: "pointer" }}>
                 <LogOut size={12} /> Sign out
               </button>
             </div>
@@ -2191,16 +2245,16 @@ export default function DiscogsTradeList() {
                   gap: 8,
                   padding: "14px 12px",
                   borderRadius: 10,
-                  border: active ? "1px solid #9D7047" : "1px solid #2A2A2A",
+                  border: active ? "1px solid var(--accent)" : "1px solid var(--line)",
                   cursor: "pointer",
-                  background: active ? "#1A0E0F" : "#121212",
-                  color: active ? "#F5F0EC" : "#9A9A9A",
+                  background: active ? "var(--accent-soft)" : "var(--surface)",
+                  color: active ? "var(--text)" : "var(--muted)",
                   fontSize: 14.5,
                   fontWeight: 700,
                   letterSpacing: 0.3,
                 }}
               >
-                <Icon size={16} color={active ? "#9D7047" : "#6B6B6B"} />
+                <Icon size={16} color={active ? "var(--accent)" : "var(--muted-2)"} />
                 {t.label}
               </button>
             );
@@ -2217,23 +2271,23 @@ export default function DiscogsTradeList() {
               gap: 8,
               padding: "14px 12px",
               borderRadius: 10,
-              border: listType === "listening" ? "1px solid #9D7047" : "1px solid #2A2A2A",
+              border: listType === "listening" ? "1px solid var(--accent)" : "1px solid var(--line)",
               cursor: "pointer",
-              background: listType === "listening" ? "#1A0E0F" : "#121212",
-              color: listType === "listening" ? "#F5F0EC" : "#9A9A9A",
+              background: listType === "listening" ? "var(--accent-soft)" : "var(--surface)",
+              color: listType === "listening" ? "var(--text)" : "var(--muted)",
               fontSize: 14.5,
               fontWeight: 700,
               letterSpacing: 0.3,
             }}
           >
-            <Headphones size={16} color={listType === "listening" ? "#9D7047" : "#6B6B6B"} />
+            <Headphones size={16} color={listType === "listening" ? "var(--accent)" : "var(--muted-2)"} />
             Listening
           </button>
         </div>
 
         {listType !== "listening" && (
         <>
-        <p style={{ color: "#9A9A9A", fontSize: 14, lineHeight: 1.5, marginTop: 0, marginBottom: 24, textAlign: "center" }}>
+        <p style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.5, marginTop: 0, marginBottom: 24, textAlign: "center" }}>
           {activeType.intro} Items you add are tied to your signed-in account.
         </p>
 
@@ -2242,11 +2296,11 @@ export default function DiscogsTradeList() {
           style={{
             display: "flex",
             gap: 4,
-            background: "#121212",
+            background: "var(--surface)",
             borderRadius: 10,
             padding: 4,
             marginBottom: 24,
-            border: "1px solid #2A2A2A",
+            border: "1px solid var(--line)",
           }}
         >
           {tabs.map((t) => {
@@ -2267,8 +2321,8 @@ export default function DiscogsTradeList() {
                   borderRadius: 7,
                   border: "none",
                   cursor: "pointer",
-                  background: active ? "#9D7047" : "transparent",
-                  color: active ? "#F5F0EC" : "#9A9A9A",
+                  background: active ? "var(--accent)" : "transparent",
+                  color: active ? "var(--text)" : "var(--muted)",
                   fontSize: 13.5,
                   fontWeight: 600,
                 }}
@@ -2284,24 +2338,24 @@ export default function DiscogsTradeList() {
         {view === "add" && (
           <div>
             {!session || !profile ? (
-              <div style={{ padding: "16px 14px", marginBottom: 18, border: "1px solid #2A2A2A", borderRadius: 9, background: "#0D0D0D", color: "#9A9A9A", fontSize: 13, lineHeight: 1.5 }}>
+              <div style={{ padding: "16px 14px", marginBottom: 18, border: "1px solid var(--line)", borderRadius: 9, background: "var(--surface-alt)", color: "var(--muted)", fontSize: 13, lineHeight: 1.5 }}>
                 Sign in above to add records, import a Discogs wantlist, or upload a spreadsheet. You can still browse the public list.
               </div>
             ) : (
-              <div className="mono" style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 10px", marginBottom: 18, borderRadius: 8, background: "#121212", border: "1px solid #2A2A2A", color: "#9A9A9A", fontSize: 10.5 }}>
-                <User size={13} color="#9D7047" />
-                Adding as <strong style={{ color: "#F5F0EC" }}>{name}</strong>
+              <div className="mono" style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 10px", marginBottom: 18, borderRadius: 8, background: "var(--surface)", border: "1px solid var(--line)", color: "var(--muted)", fontSize: 10.5 }}>
+                <User size={13} color="var(--accent)" />
+                Adding as <strong style={{ color: "var(--text)" }}>{name}</strong>
               </div>
             )}
 
             {session && profile && (
               <>
-            <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+            <label style={{ display: "block", fontSize: 12.5, color: "var(--muted)", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
               SEARCH DISCOGS
             </label>
             <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
               <div style={{ position: "relative", flex: 1 }}>
-                <Search size={16} color="#9A9A9A" style={{ position: "absolute", left: 12, top: 12 }} />
+                <Search size={16} color="var(--muted)" style={{ position: "absolute", left: 12, top: 12 }} />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -2313,9 +2367,9 @@ export default function DiscogsTradeList() {
                     width: "100%",
                     padding: "10px 12px 10px 36px",
                     borderRadius: 8,
-                    border: "1px solid #2A2A2A",
-                    background: "#121212",
-                    color: "#F5F0EC",
+                    border: "1px solid var(--line)",
+                    background: "var(--surface)",
+                    color: "var(--text)",
                     fontSize: 14.5,
                     boxSizing: "border-box",
                     outline: "none",
@@ -2330,8 +2384,8 @@ export default function DiscogsTradeList() {
                   padding: "0 18px",
                   borderRadius: 8,
                   border: "none",
-                  background: "#9D7047",
-                  color: "#F5F0EC",
+                  background: "var(--accent)",
+                  color: "var(--text)",
                   fontWeight: 600,
                   fontSize: 14,
                   cursor: "pointer",
@@ -2347,8 +2401,8 @@ export default function DiscogsTradeList() {
             {searchError && (
               <div
                 style={{
-                  background: "#1A0E0F",
-                  border: "1px solid #9D7047",
+                  background: "var(--accent-soft)",
+                  border: "1px solid var(--accent)",
                   borderRadius: 8,
                   padding: "10px 12px",
                   fontSize: 13,
@@ -2373,7 +2427,7 @@ export default function DiscogsTradeList() {
                       alignItems: "center",
                       gap: 12,
                       padding: "10px 4px",
-                      borderBottom: "1px solid #2A2A2A",
+                      borderBottom: "1px solid var(--line)",
                     }}
                   >
                     <a
@@ -2394,7 +2448,7 @@ export default function DiscogsTradeList() {
                           style={{
                             fontSize: 14,
                             fontWeight: 500,
-                            color: "#F5F0EC",
+                            color: "var(--text)",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
@@ -2402,17 +2456,17 @@ export default function DiscogsTradeList() {
                             textDecoration: "none",
                             borderBottom: "1px solid transparent",
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = "#9D7047")}
+                          onMouseEnter={(e) => (e.currentTarget.style.borderBottomColor = "var(--accent)")}
                           onMouseLeave={(e) => (e.currentTarget.style.borderBottomColor = "transparent")}
                         >
                           {item.title}
                         </a>
                       ) : (
-                        <div style={{ fontSize: 14, fontWeight: 500, color: "#F5F0EC", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {item.title}
                         </div>
                       )}
-                      <div className="mono" style={{ fontSize: 11, color: "#9A9A9A", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <div className="mono" style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                         {item.type === "master" && (
                           <span
                             style={{
@@ -2437,9 +2491,9 @@ export default function DiscogsTradeList() {
                       style={{
                         padding: "7px 12px",
                         borderRadius: 7,
-                        border: `1px solid ${name.trim() ? "#9D7047" : "#3A3A3A"}`,
+                        border: `1px solid ${name.trim() ? "var(--accent)" : "var(--disabled-bg)"}`,
                         background: "transparent",
-                        color: name.trim() ? "#F5F0EC" : "#6B6B6B",
+                        color: name.trim() ? "var(--text)" : "var(--muted-2)",
                         fontSize: 12.5,
                         fontWeight: 600,
                         cursor: name.trim() ? "pointer" : "not-allowed",
@@ -2456,7 +2510,7 @@ export default function DiscogsTradeList() {
             {/* Discogs wantlist explore/import — In Search Of only */}
             {listType === "seeking" && (
               <div style={{ marginTop: 8 }}>
-                <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+                <label style={{ display: "block", fontSize: 12.5, color: "var(--muted)", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
                   OR ADD FROM YOUR DISCOGS WANTLIST
                 </label>
                 <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
@@ -2471,9 +2525,9 @@ export default function DiscogsTradeList() {
                       flex: 1,
                       padding: "9px 10px",
                       borderRadius: 7,
-                      border: "1px solid #2A2A2A",
-                      background: "#121212",
-                      color: "#F5F0EC",
+                      border: "1px solid var(--line)",
+                      background: "var(--surface)",
+                      color: "var(--text)",
                       fontSize: 14,
                       boxSizing: "border-box",
                       outline: "none",
@@ -2487,8 +2541,8 @@ export default function DiscogsTradeList() {
                       padding: "0 16px",
                       borderRadius: 7,
                       border: "none",
-                      background: discogsUsername.trim() ? "#9D7047" : "#3A3A3A",
-                      color: discogsUsername.trim() ? "#F5F0EC" : "#6B6B6B",
+                      background: discogsUsername.trim() ? "var(--accent)" : "var(--disabled-bg)",
+                      color: discogsUsername.trim() ? "var(--text)" : "var(--muted-2)",
                       fontWeight: 600,
                       fontSize: 13.5,
                       cursor: discogsUsername.trim() ? "pointer" : "not-allowed",
@@ -2500,7 +2554,7 @@ export default function DiscogsTradeList() {
                     {discogsImporting ? <RefreshCw size={14} className="spin" /> : "Explore"}
                   </button>
                 </div>
-                <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", margin: "0 0 10px 2px" }}>
+                <p className="mono" style={{ fontSize: 10.5, color: "var(--muted)", margin: "0 0 10px 2px" }}>
                   Browse a public Discogs wantlist and pick which items to add. Nothing is added automatically. Private wantlists aren't supported yet.
                 </p>
 
@@ -2509,7 +2563,7 @@ export default function DiscogsTradeList() {
                     style={{
                       display: "flex",
                       gap: 8,
-                      background: "#1A0E0F",
+                      background: "var(--accent-soft)",
                       border: "1px solid #7A0E12",
                       borderRadius: 8,
                       padding: "10px 12px",
@@ -2527,15 +2581,15 @@ export default function DiscogsTradeList() {
                 {discogsWantItems && (
                   <div
                     style={{
-                      background: "#121212",
-                      border: "1px solid #2A2A2A",
+                      background: "var(--surface)",
+                      border: "1px solid var(--line)",
                       borderRadius: 10,
                       padding: 14,
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                      <ListMusic size={16} color="#9D7047" />
-                      <span style={{ fontSize: 13.5, fontWeight: 600, color: "#F5F0EC" }}>
+                      <ListMusic size={16} color="var(--accent)" />
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>
                         {discogsWantItems.length} item{discogsWantItems.length !== 1 ? "s" : ""} found — pick what to add
                       </span>
                     </div>
@@ -2544,18 +2598,18 @@ export default function DiscogsTradeList() {
                       <button
                         type="button"
                         onClick={() => setDiscogsSelected(Object.fromEntries(discogsWantItems.map((it) => [it.id, true])))}
-                        style={{ background: "none", border: "none", color: "#9A9A9A", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                        style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}
                       >
                         Select all
                       </button>
                       <button
                         type="button"
                         onClick={() => setDiscogsSelected({})}
-                        style={{ background: "none", border: "none", color: "#9A9A9A", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                        style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}
                       >
                         Select none
                       </button>
-                      <span className="mono" style={{ fontSize: 11, color: "#6B6B6B", marginLeft: "auto" }}>
+                      <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)", marginLeft: "auto" }}>
                         {discogsSelectedCount} selected
                       </span>
                     </div>
@@ -2573,7 +2627,7 @@ export default function DiscogsTradeList() {
                               alignItems: "center",
                               gap: 10,
                               padding: "7px 2px",
-                              borderBottom: "1px solid #1E1E1E",
+                              borderBottom: "1px solid var(--line-soft)",
                               cursor: "pointer",
                               opacity: dup ? 0.55 : 1,
                             }}
@@ -2582,14 +2636,14 @@ export default function DiscogsTradeList() {
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleDiscogsItem(it.id)}
-                              style={{ flexShrink: 0, width: 16, height: 16, accentColor: "#9D7047" }}
+                              style={{ flexShrink: 0, width: 16, height: 16, accentColor: "var(--accent)" }}
                             />
                             <RecordThumb src={it.thumb} alt={it.title} size={36} />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div
                                 style={{
                                   fontSize: 13,
-                                  color: "#F5F0EC",
+                                  color: "var(--text)",
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
                                   whiteSpace: "nowrap",
@@ -2597,7 +2651,7 @@ export default function DiscogsTradeList() {
                               >
                                 {it.title}
                               </div>
-                              <div className="mono" style={{ fontSize: 10.5, color: "#9A9A9A" }}>
+                              <div className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>
                                 {it.year || ""} {itemFormat ? `· ${itemFormat}` : ""} {dup ? "· already on the list" : ""}
                               </div>
                             </div>
@@ -2619,8 +2673,8 @@ export default function DiscogsTradeList() {
                           padding: "8px 16px",
                           borderRadius: 7,
                           border: "none",
-                          background: discogsSelectedCount > 0 ? "#9D7047" : "#3A3A3A",
-                          color: discogsSelectedCount > 0 ? "#F5F0EC" : "#6B6B6B",
+                          background: discogsSelectedCount > 0 ? "var(--accent)" : "var(--disabled-bg)",
+                          color: discogsSelectedCount > 0 ? "var(--text)" : "var(--muted-2)",
                           fontWeight: 600,
                           fontSize: 13,
                           cursor: discogsAdding || discogsSelectedCount === 0 ? "not-allowed" : "pointer",
@@ -2635,9 +2689,9 @@ export default function DiscogsTradeList() {
                         style={{
                           padding: "8px 16px",
                           borderRadius: 7,
-                          border: "1px solid #2A2A2A",
+                          border: "1px solid var(--line)",
                           background: "transparent",
-                          color: "#9A9A9A",
+                          color: "var(--muted)",
                           fontWeight: 600,
                           fontSize: 13,
                           cursor: "pointer",
@@ -2653,7 +2707,7 @@ export default function DiscogsTradeList() {
 
             {listType === "trade" && (
               <div style={{ marginTop: 8 }}>
-                <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+                <label style={{ display: "block", fontSize: 12.5, color: "var(--muted)", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
                   OR ADD FROM YOUR DISCOGS INVENTORY (FOR SALE)
                 </label>
                 <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
@@ -2668,9 +2722,9 @@ export default function DiscogsTradeList() {
                       flex: 1,
                       padding: "9px 10px",
                       borderRadius: 7,
-                      border: "1px solid #2A2A2A",
-                      background: "#121212",
-                      color: "#F5F0EC",
+                      border: "1px solid var(--line)",
+                      background: "var(--surface)",
+                      color: "var(--text)",
                       fontSize: 14,
                       boxSizing: "border-box",
                       outline: "none",
@@ -2684,8 +2738,8 @@ export default function DiscogsTradeList() {
                       padding: "0 16px",
                       borderRadius: 7,
                       border: "none",
-                      background: discogsInvUsername.trim() ? "#9D7047" : "#3A3A3A",
-                      color: discogsInvUsername.trim() ? "#F5F0EC" : "#6B6B6B",
+                      background: discogsInvUsername.trim() ? "var(--accent)" : "var(--disabled-bg)",
+                      color: discogsInvUsername.trim() ? "var(--text)" : "var(--muted-2)",
                       fontWeight: 600,
                       fontSize: 13.5,
                       cursor: discogsInvUsername.trim() ? "pointer" : "not-allowed",
@@ -2697,7 +2751,7 @@ export default function DiscogsTradeList() {
                     {discogsInvImporting ? <RefreshCw size={14} className="spin" /> : "Explore"}
                   </button>
                 </div>
-                <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", margin: "0 0 10px 2px" }}>
+                <p className="mono" style={{ fontSize: 10.5, color: "var(--muted)", margin: "0 0 10px 2px" }}>
                   Pulls your public "For Sale" Discogs listings and lets you pick which to add. Nothing is added automatically. Private inventories aren't supported.
                 </p>
 
@@ -2706,7 +2760,7 @@ export default function DiscogsTradeList() {
                     style={{
                       display: "flex",
                       gap: 8,
-                      background: "#1A0E0F",
+                      background: "var(--accent-soft)",
                       border: "1px solid #7A0E12",
                       borderRadius: 8,
                       padding: "10px 12px",
@@ -2724,15 +2778,15 @@ export default function DiscogsTradeList() {
                 {discogsInvItems && (
                   <div
                     style={{
-                      background: "#121212",
-                      border: "1px solid #2A2A2A",
+                      background: "var(--surface)",
+                      border: "1px solid var(--line)",
                       borderRadius: 10,
                       padding: 14,
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                      <ListMusic size={16} color="#9D7047" />
-                      <span style={{ fontSize: 13.5, fontWeight: 600, color: "#F5F0EC" }}>
+                      <ListMusic size={16} color="var(--accent)" />
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--text)" }}>
                         {discogsInvItems.length} item{discogsInvItems.length !== 1 ? "s" : ""} found — pick what to add
                       </span>
                     </div>
@@ -2741,18 +2795,18 @@ export default function DiscogsTradeList() {
                       <button
                         type="button"
                         onClick={() => setDiscogsSelected(Object.fromEntries(discogsInvItems.map((it) => [it.id, true])))}
-                        style={{ background: "none", border: "none", color: "#9A9A9A", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                        style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}
                       >
                         Select all
                       </button>
                       <button
                         type="button"
                         onClick={() => setDiscogsInvSelected({})}
-                        style={{ background: "none", border: "none", color: "#9A9A9A", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                        style={{ background: "none", border: "none", color: "var(--muted)", fontSize: 11.5, fontWeight: 600, cursor: "pointer", padding: 0 }}
                       >
                         Select none
                       </button>
-                      <span className="mono" style={{ fontSize: 11, color: "#6B6B6B", marginLeft: "auto" }}>
+                      <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)", marginLeft: "auto" }}>
                         {discogsInvSelectedCount} selected
                       </span>
                     </div>
@@ -2770,7 +2824,7 @@ export default function DiscogsTradeList() {
                               alignItems: "center",
                               gap: 10,
                               padding: "7px 2px",
-                              borderBottom: "1px solid #1E1E1E",
+                              borderBottom: "1px solid var(--line-soft)",
                               cursor: "pointer",
                               opacity: dup ? 0.55 : 1,
                             }}
@@ -2779,14 +2833,14 @@ export default function DiscogsTradeList() {
                               type="checkbox"
                               checked={checked}
                               onChange={() => toggleDiscogsInvItem(it.id)}
-                              style={{ flexShrink: 0, width: 16, height: 16, accentColor: "#9D7047" }}
+                              style={{ flexShrink: 0, width: 16, height: 16, accentColor: "var(--accent)" }}
                             />
                             <RecordThumb src={it.thumb} alt={it.title} size={36} />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div
                                 style={{
                                   fontSize: 13,
-                                  color: "#F5F0EC",
+                                  color: "var(--text)",
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
                                   whiteSpace: "nowrap",
@@ -2794,7 +2848,7 @@ export default function DiscogsTradeList() {
                               >
                                 {it.title}
                               </div>
-                              <div className="mono" style={{ fontSize: 10.5, color: "#9A9A9A" }}>
+                              <div className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>
                                 {it.year || ""} {itemFormat ? `· ${itemFormat}` : ""} {dup ? "· already on the list" : ""}
                               </div>
                             </div>
@@ -2816,8 +2870,8 @@ export default function DiscogsTradeList() {
                           padding: "8px 16px",
                           borderRadius: 7,
                           border: "none",
-                          background: discogsInvSelectedCount > 0 ? "#9D7047" : "#3A3A3A",
-                          color: discogsInvSelectedCount > 0 ? "#F5F0EC" : "#6B6B6B",
+                          background: discogsInvSelectedCount > 0 ? "var(--accent)" : "var(--disabled-bg)",
+                          color: discogsInvSelectedCount > 0 ? "var(--text)" : "var(--muted-2)",
                           fontWeight: 600,
                           fontSize: 13,
                           cursor: discogsInvAdding || discogsInvSelectedCount === 0 ? "not-allowed" : "pointer",
@@ -2832,9 +2886,9 @@ export default function DiscogsTradeList() {
                         style={{
                           padding: "8px 16px",
                           borderRadius: 7,
-                          border: "1px solid #2A2A2A",
+                          border: "1px solid var(--line)",
                           background: "transparent",
-                          color: "#9A9A9A",
+                          color: "var(--muted)",
                           fontWeight: 600,
                           fontSize: 13,
                           cursor: "pointer",
@@ -2862,7 +2916,7 @@ export default function DiscogsTradeList() {
                 style={{
                   display: "block",
                   fontSize: 11.5,
-                  color: "#9A9A9A",
+                  color: "var(--muted)",
                   marginBottom: 6,
                   fontWeight: 600,
                   letterSpacing: 1,
@@ -2878,7 +2932,7 @@ export default function DiscogsTradeList() {
                     left: 12,
                     top: "50%",
                     transform: "translateY(-50%)",
-                    color: "#6B6B6B",
+                    color: "var(--muted-2)",
                     pointerEvents: "none",
                   }}
                 />
@@ -2893,9 +2947,9 @@ export default function DiscogsTradeList() {
                     width: "100%",
                     padding: "10px 40px 10px 38px",
                     borderRadius: 8,
-                    border: "1px solid #2A2A2A",
-                    background: "#121212",
-                    color: "#F5F0EC",
+                    border: "1px solid var(--line)",
+                    background: "var(--surface)",
+                    color: "var(--text)",
                     fontSize: 14,
                     boxSizing: "border-box",
                     outline: "none",
@@ -2921,7 +2975,7 @@ export default function DiscogsTradeList() {
                       border: "none",
                       borderRadius: 5,
                       background: "transparent",
-                      color: "#9A9A9A",
+                      color: "var(--muted)",
                       cursor: "pointer",
                     }}
                   >
@@ -2929,7 +2983,7 @@ export default function DiscogsTradeList() {
                   </button>
                 )}
               </div>
-              <div className="mono" style={{ fontSize: 10.5, color: "#6B6B6B", marginTop: 6 }}>
+              <div className="mono" style={{ fontSize: 10.5, color: "var(--muted-2)", marginTop: 6 }}>
                 Searches title, genre, format, condition, and person together.
               </div>
             </div>
@@ -2938,7 +2992,7 @@ export default function DiscogsTradeList() {
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
                 {personOptions.length > 0 && (
                   <div style={{ flex: 1, minWidth: 140 }}>
-                    <label htmlFor="by-item-person" style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+                    <label htmlFor="by-item-person" style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
                       FILTER BY PERSON
                     </label>
                     <select
@@ -2949,9 +3003,9 @@ export default function DiscogsTradeList() {
                         width: "100%",
                         padding: "9px 12px",
                         borderRadius: 8,
-                        border: "1px solid #2A2A2A",
-                        background: "#121212",
-                        color: "#F5F0EC",
+                        border: "1px solid var(--line)",
+                        background: "var(--surface)",
+                        color: "var(--text)",
                         fontSize: 14,
                         boxSizing: "border-box",
                         outline: "none",
@@ -2969,7 +3023,7 @@ export default function DiscogsTradeList() {
                 )}
                 {allGenres.length > 0 && (
                   <div style={{ flex: 1, minWidth: 140 }}>
-                    <label htmlFor="by-item-genre" style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+                    <label htmlFor="by-item-genre" style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
                       FILTER BY GENRE
                     </label>
                     <select
@@ -2980,9 +3034,9 @@ export default function DiscogsTradeList() {
                         width: "100%",
                         padding: "9px 12px",
                         borderRadius: 8,
-                        border: "1px solid #2A2A2A",
-                        background: "#121212",
-                        color: "#F5F0EC",
+                        border: "1px solid var(--line)",
+                        background: "var(--surface)",
+                        color: "var(--text)",
                         fontSize: 14,
                         boxSizing: "border-box",
                         outline: "none",
@@ -3001,7 +3055,7 @@ export default function DiscogsTradeList() {
                 )}
                 {allFormats.length > 0 && (
                   <div style={{ flex: 1, minWidth: 140 }}>
-                    <label htmlFor="by-item-format" style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+                    <label htmlFor="by-item-format" style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
                       FILTER BY FORMAT
                     </label>
                     <select
@@ -3012,9 +3066,9 @@ export default function DiscogsTradeList() {
                         width: "100%",
                         padding: "9px 12px",
                         borderRadius: 8,
-                        border: "1px solid #2A2A2A",
-                        background: "#121212",
-                        color: "#F5F0EC",
+                        border: "1px solid var(--line)",
+                        background: "var(--surface)",
+                        color: "var(--text)",
                         fontSize: 14,
                         boxSizing: "border-box",
                         outline: "none",
@@ -3036,7 +3090,7 @@ export default function DiscogsTradeList() {
             {listType === "trade" && !loadingEntries && activeItemGroups.length > 0 && swappedItemGroups.length > 0 && (
               <div
                 className="mono"
-                style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.5, color: "#6B6B6B", padding: "4px 0 10px" }}
+                style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.5, color: "var(--muted-2)", padding: "4px 0 10px" }}
               >
                 Active ({activeItemGroups.length})
               </div>
@@ -3069,7 +3123,7 @@ export default function DiscogsTradeList() {
                     alignItems: "flex-start",
                     gap: 12,
                     padding: "14px 4px",
-                    borderBottom: "1px solid #2A2A2A",
+                    borderBottom: "1px solid var(--line)",
                   }}
                 >
                   <RecordThumb
@@ -3084,12 +3138,12 @@ export default function DiscogsTradeList() {
                         href={g.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ fontSize: 15, fontWeight: 500, color: "#F5F0EC", textDecoration: "none", borderBottom: "1px solid #9D7047" }}
+                        style={{ fontSize: 15, fontWeight: 500, color: "var(--text)", textDecoration: "none", borderBottom: "1px solid var(--accent)" }}
                       >
                         {g.title}
                       </a>
                     ) : (
-                      <div style={{ fontSize: 15, fontWeight: 500, color: "#F5F0EC" }}>{g.title}</div>
+                      <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text)" }}>{g.title}</div>
                     )}
                     {(g.genre || g.format) && (
                       <div
@@ -3103,8 +3157,8 @@ export default function DiscogsTradeList() {
                           gap: 5,
                         }}
                       >
-                        {g.genre && <span style={{ color: "#9D7047" }}>{g.genre}</span>}
-                        {g.genre && g.format && <span style={{ color: "#4A4A4A" }}>|</span>}
+                        {g.genre && <span style={{ color: "var(--accent)" }}>{g.genre}</span>}
+                        {g.genre && g.format && <span style={{ color: "var(--muted-border)" }}>|</span>}
                         {g.format && <span style={{ color: formatColor(g.format) }}>{g.format}</span>}
                       </div>
                     )}
@@ -3124,11 +3178,11 @@ export default function DiscogsTradeList() {
                               key={`condition-${p.id}`}
                               style={{
                                 fontSize: 11.5,
-                                color: "#D8D3CC",
+                                color: "var(--text-tertiary)",
                                 lineHeight: 1.4,
                               }}
                             >
-                              <span className="mono" style={{ color: "#CEAE73", fontSize: 10.5 }}>
+                              <span className="mono" style={{ color: "var(--gold)", fontSize: 10.5 }}>
                                 CONDITION
                                 {g.people.length > 1 ? ` · ${p.name}` : ""}
                               </span>
@@ -3148,7 +3202,7 @@ export default function DiscogsTradeList() {
                               key={p.id}
                               style={{
                                 fontSize: 11.5,
-                                color: "#9A9A9A",
+                                color: "var(--muted)",
                                 fontStyle: "italic",
                                 lineHeight: 1.4,
                                 display: "flex",
@@ -3156,10 +3210,10 @@ export default function DiscogsTradeList() {
                                 gap: 5,
                               }}
                             >
-                              <StickyNote size={11} color="#6B6B6B" style={{ flexShrink: 0, marginTop: 3 }} />
+                              <StickyNote size={11} color="var(--muted-2)" style={{ flexShrink: 0, marginTop: 3 }} />
                               <span style={{ flex: 1, minWidth: 0 }}>
                                 {g.people.length > 1 && (
-                                  <span className="mono" style={{ fontStyle: "normal", color: "#6B6B6B" }}>
+                                  <span className="mono" style={{ fontStyle: "normal", color: "var(--muted-2)" }}>
                                     {p.name}:{" "}
                                   </span>
                                 )}
@@ -3205,11 +3259,11 @@ export default function DiscogsTradeList() {
                                   title={`View ${p.name}'s profile`}
                                   style={{
                                     fontSize: 11,
-                                    background: "#121212",
-                                    color: "#F5F0EC",
+                                    background: "var(--surface)",
+                                    color: "var(--text)",
                                     padding: "4px 9px",
                                     borderRadius: 20,
-                                    border: "1px solid #2A2A2A",
+                                    border: "1px solid var(--line)",
                                     display: "inline-flex",
                                     alignItems: "center",
                                     gap: 4,
@@ -3226,11 +3280,11 @@ export default function DiscogsTradeList() {
                                   title={p.name}
                                   style={{
                                     fontSize: 11,
-                                    background: "#121212",
-                                    color: "#F5F0EC",
+                                    background: "var(--surface)",
+                                    color: "var(--text)",
                                     padding: "4px 9px",
                                     borderRadius: 20,
-                                    border: "1px solid #2A2A2A",
+                                    border: "1px solid var(--line)",
                                     display: "inline-flex",
                                     alignItems: "center",
                                     gap: 4,
@@ -3327,10 +3381,10 @@ export default function DiscogsTradeList() {
                           style={{
                             fontSize: 11,
                             background: "none",
-                            color: "#F5F0EC",
+                            color: "var(--text)",
                             padding: "3px 8px",
                             borderRadius: 20,
-                            border: "1px solid #9D7047",
+                            border: "1px solid var(--accent)",
                             display: "inline-flex",
                             alignItems: "center",
                             gap: 4,
@@ -3355,7 +3409,7 @@ export default function DiscogsTradeList() {
                       return (
                         <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                           {g.people.length > 1 && (
-                            <span className="mono" style={{ fontSize: 9.5, color: "#6B6B6B" }}>
+                            <span className="mono" style={{ fontSize: 9.5, color: "var(--muted-2)" }}>
                               {p.name}
                             </span>
                           )}
@@ -3375,9 +3429,9 @@ export default function DiscogsTradeList() {
                               title={`Edit ${p.name}'s condition & notes`}
                               aria-label={`Edit ${p.name}'s condition & notes`}
                               style={{
-                                border: "1px solid #4A3B2A",
+                                border: "1px solid var(--accent-dark-soft)",
                                 background: "rgba(157,112,71,0.08)",
-                                color: "#CEAE64",
+                                color: "var(--gold)",
                                 padding: 0,
                                 width: 26,
                                 height: 26,
@@ -3433,7 +3487,7 @@ export default function DiscogsTradeList() {
                   style={{
                     background: "none",
                     border: "none",
-                    color: "#6B6B6B",
+                    color: "var(--muted-2)",
                     fontSize: 11,
                     fontWeight: 600,
                     letterSpacing: 0.5,
@@ -3454,7 +3508,7 @@ export default function DiscogsTradeList() {
                         flexWrap: "wrap",
                         gap: 8,
                         padding: "8px 4px",
-                        borderBottom: "1px solid #2A2A2A",
+                        borderBottom: "1px solid var(--line)",
                         opacity: 0.55,
                       }}
                     >
@@ -3465,8 +3519,8 @@ export default function DiscogsTradeList() {
                         onClick={() => setImagePreview({ src: g.image_full || g.thumb, alt: g.title })}
                       />
                       <div style={{ flex: 1, minWidth: 160 }}>
-                        <div style={{ fontSize: 13.5, color: "#9A9A9A" }}>{g.title}</div>
-                        <span className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>
+                        <div style={{ fontSize: 13.5, color: "var(--muted)" }}>{g.title}</div>
+                        <span className="mono" style={{ fontSize: 10.5, color: "var(--muted-2)" }}>
                           {g.people.map((p) => p.name).join(", ")}
                         </span>
                       </div>
@@ -3481,8 +3535,8 @@ export default function DiscogsTradeList() {
                             title={`Reopen ${p.name}'s copy — change status`}
                             style={{
                               background: "none",
-                              border: "1px solid #2A2A2A",
-                              color: "#9A9A9A",
+                              border: "1px solid var(--line)",
+                              color: "var(--muted)",
                               cursor: "pointer",
                               padding: "4px 8px",
                               borderRadius: 6,
@@ -3512,7 +3566,7 @@ export default function DiscogsTradeList() {
                   style={{
                     background: "none",
                     border: "none",
-                    color: "#6B6B6B",
+                    color: "var(--muted-2)",
                     fontSize: 11,
                     fontWeight: 600,
                     letterSpacing: 0.5,
@@ -3535,7 +3589,7 @@ export default function DiscogsTradeList() {
                           flexWrap: "wrap",
                           gap: 8,
                           padding: "8px 4px",
-                          borderBottom: "1px solid #2A2A2A",
+                          borderBottom: "1px solid var(--line)",
                           opacity: 0.55,
                         }}
                       >
@@ -3546,10 +3600,10 @@ export default function DiscogsTradeList() {
                           onClick={() => setImagePreview({ src: e.image_full || e.thumb, alt: e.title })}
                         />
                         <div style={{ flex: 1, minWidth: 160 }}>
-                          <div style={{ fontSize: 13.5, color: "#9A9A9A", textDecoration: "line-through" }}>
+                          <div style={{ fontSize: 13.5, color: "var(--muted)", textDecoration: "line-through" }}>
                             {e.title}
                           </div>
-                          <span className="mono" style={{ fontSize: 10.5, color: "#6B6B6B" }}>
+                          <span className="mono" style={{ fontSize: 10.5, color: "var(--muted-2)" }}>
                             {e.name}
                           </span>
                         </div>
@@ -3560,8 +3614,8 @@ export default function DiscogsTradeList() {
                             title="Restore to the list"
                             style={{
                               background: "none",
-                              border: "1px solid #2A2A2A",
-                              color: "#9A9A9A",
+                              border: "1px solid var(--line)",
+                              color: "var(--muted)",
                               cursor: "pointer",
                               padding: "4px 8px",
                               borderRadius: 6,
@@ -3582,7 +3636,7 @@ export default function DiscogsTradeList() {
                             onClick={() => setRemoveModal({ id: e.id, title: e.title, name: e.name, unwanted: true })}
                             title="Remove permanently"
                             aria-label={`Permanently remove ${e.name}'s item`}
-                            style={{ border: "none", background: "transparent", color: "#9D7047", padding: 2, cursor: "pointer", flexShrink: 0 }}
+                            style={{ border: "none", background: "transparent", color: "var(--accent)", padding: 2, cursor: "pointer", flexShrink: 0 }}
                           >
                             <X size={14} strokeWidth={2.5} />
                           </button>
@@ -3600,25 +3654,25 @@ export default function DiscogsTradeList() {
         {/* LISTENING TAB */}
         {listType === "listening" && (
           <div>
-            <p style={{ color: "#9A9A9A", fontSize: 14, lineHeight: 1.5, marginTop: 0, marginBottom: 24, textAlign: "center" }}>
+            <p style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.5, marginTop: 0, marginBottom: 24, textAlign: "center" }}>
               Share a track, album, or playlist worth hearing. Posts are tied to your signed-in account.
             </p>
 
             {/* Submit box */}
-            <div style={{ background: "#0D0D0D", border: "1px solid #2A2A2A", borderRadius: 10, padding: 14, marginBottom: 20 }}>
+            <div style={{ background: "var(--surface-alt)", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 20 }}>
               {!session || !profile ? (
-                <div style={{ color: "#9A9A9A", fontSize: 13, lineHeight: 1.5 }}>
+                <div style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.5 }}>
                   Sign in above to post a recommendation. You can still browse what's here.
                 </div>
               ) : (
                 <>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#000000", border: "1px solid #2A2A2A", borderRadius: 8, padding: "10px 12px", marginBottom: 10 }}>
-                    <Link2 size={15} color="#9A9A9A" style={{ flexShrink: 0 }} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 8, padding: "10px 12px", marginBottom: 10 }}>
+                    <Link2 size={15} color="var(--muted)" style={{ flexShrink: 0 }} />
                     <input
                       value={listeningUrl}
                       onChange={(e) => setListeningUrl(e.target.value)}
                       placeholder="Paste a Spotify, YouTube, or Bandcamp link…"
-                      style={{ flex: 1, border: "none", background: "transparent", color: "#F5F0EC", fontSize: 13.5, outline: "none" }}
+                      style={{ flex: 1, border: "none", background: "transparent", color: "var(--text)", fontSize: 13.5, outline: "none" }}
                     />
                   </div>
 
@@ -3629,7 +3683,7 @@ export default function DiscogsTradeList() {
                   )}
 
                   {listeningPreview && !listeningPreviewLoading && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#121212", border: "1px solid #2A2A2A", borderRadius: 8, padding: 8, marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 8, padding: 8, marginBottom: 10 }}>
                       {listeningPreview.thumbnailUrl ? (
                         <img
                           src={listeningPreview.thumbnailUrl}
@@ -3637,16 +3691,16 @@ export default function DiscogsTradeList() {
                           style={{ width: 44, height: 44, borderRadius: 6, objectFit: "cover", flexShrink: 0 }}
                         />
                       ) : (
-                        <div style={{ width: 44, height: 44, borderRadius: 6, background: "#000000", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          <Music2 size={18} color="#6B6B6B" />
+                        <div style={{ width: 44, height: 44, borderRadius: 6, background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <Music2 size={18} color="var(--muted-2)" />
                         </div>
                       )}
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, color: "#F5F0EC", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div style={{ fontSize: 12.5, color: "var(--text)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {listeningPreview.title || "Untitled"}
                         </div>
                         {listeningPreview.subtitle && (
-                          <div style={{ fontSize: 11, color: "#9A9A9A", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {listeningPreview.subtitle}
                           </div>
                         )}
@@ -3658,11 +3712,11 @@ export default function DiscogsTradeList() {
                     value={listeningNote}
                     onChange={(e) => setListeningNote(e.target.value)}
                     placeholder="Add a short note (optional)"
-                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 10px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", marginBottom: 10 }}
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 10px", borderRadius: 7, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--text)", fontSize: 13, outline: "none", marginBottom: 10 }}
                   />
 
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                    <div style={{ display: "flex", gap: 4, background: "#000000", border: "1px solid #2A2A2A", borderRadius: 7, padding: 3 }}>
+                    <div style={{ display: "flex", gap: 4, background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 7, padding: 3 }}>
                       {["song", "playlist"].map((k) => (
                         <button
                           key={k}
@@ -3674,7 +3728,7 @@ export default function DiscogsTradeList() {
                             border: "none",
                             cursor: "pointer",
                             background: listeningSubTab === k ? "#8FE3C1" : "transparent",
-                            color: listeningSubTab === k ? "#000000" : "#9A9A9A",
+                            color: listeningSubTab === k ? "var(--bg)" : "var(--muted)",
                             fontSize: 11.5,
                             fontWeight: 600,
                             textTransform: "capitalize",
@@ -3692,8 +3746,8 @@ export default function DiscogsTradeList() {
                         border: "none",
                         borderRadius: 7,
                         padding: "9px 16px",
-                        background: listeningUrl.trim() ? "#9D7047" : "#3A3A3A",
-                        color: "#F5F0EC",
+                        background: listeningUrl.trim() ? "var(--accent)" : "var(--disabled-bg)",
+                        color: "var(--text)",
                         fontWeight: 600,
                         fontSize: 12.5,
                         cursor: listeningUrl.trim() ? "pointer" : "not-allowed",
@@ -3711,7 +3765,7 @@ export default function DiscogsTradeList() {
             </div>
 
             {/* Songs / Playlists sub-tabs for the feed */}
-            <div style={{ display: "flex", gap: 4, background: "#121212", borderRadius: 10, padding: 4, marginBottom: 14, border: "1px solid #2A2A2A" }}>
+            <div style={{ display: "flex", gap: 4, background: "var(--surface)", borderRadius: 10, padding: 4, marginBottom: 14, border: "1px solid var(--line)" }}>
               {["song", "playlist"].map((k) => (
                 <button
                   key={k}
@@ -3723,8 +3777,8 @@ export default function DiscogsTradeList() {
                     borderRadius: 7,
                     border: "none",
                     cursor: "pointer",
-                    background: listeningSubTab === k ? "#9D7047" : "transparent",
-                    color: listeningSubTab === k ? "#F5F0EC" : "#9A9A9A",
+                    background: listeningSubTab === k ? "var(--accent)" : "transparent",
+                    color: listeningSubTab === k ? "var(--text)" : "var(--muted)",
                     fontSize: 13.5,
                     fontWeight: 600,
                     textTransform: "capitalize",
@@ -3742,8 +3796,8 @@ export default function DiscogsTradeList() {
                 onClick={() => setListeningPlatformFilter("all")}
                 style={{
                   fontSize: 10.5,
-                  color: "#F5F0EC",
-                  background: listeningPlatformFilter === "all" ? "#121212" : "transparent",
+                  color: "var(--text)",
+                  background: listeningPlatformFilter === "all" ? "var(--surface)" : "transparent",
                   border: listeningPlatformFilter === "all" ? "1px solid #8FE3C1" : "1px solid transparent",
                   padding: "5px 10px",
                   borderRadius: 20,
@@ -3762,8 +3816,8 @@ export default function DiscogsTradeList() {
                     onClick={() => setListeningPlatformFilter(key)}
                     style={{
                       fontSize: 10.5,
-                      color: listeningPlatformFilter === key ? "#F5F0EC" : "#9A9A9A",
-                      background: listeningPlatformFilter === key ? "#121212" : "transparent",
+                      color: listeningPlatformFilter === key ? "var(--text)" : "var(--muted)",
+                      background: listeningPlatformFilter === key ? "var(--surface)" : "transparent",
                       border: listeningPlatformFilter === key ? `1px solid ${cfg.color}` : "1px solid transparent",
                       padding: "5px 10px",
                       borderRadius: 20,
@@ -3804,8 +3858,8 @@ export default function DiscogsTradeList() {
                       const liked = !!(session && (post.liked_by || []).includes(session.user.id));
                       const likeCount = (post.liked_by || []).length;
                       return (
-                        <div key={post.id} style={{ background: "#121212", border: "1px solid #2A2A2A", borderRadius: 10, padding: 11, display: "flex", gap: 10 }}>
-                          <div style={{ width: 52, height: 52, flexShrink: 0, borderRadius: 7, overflow: "hidden", background: "#000000", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                        <div key={post.id} style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 10, padding: 11, display: "flex", gap: 10 }}>
+                          <div style={{ width: 52, height: 52, flexShrink: 0, borderRadius: 7, overflow: "hidden", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                             {post.thumbnail_url ? (
                               <img src={post.thumbnail_url} alt={post.title || ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                             ) : post.kind === "playlist" ? (
@@ -3813,7 +3867,7 @@ export default function DiscogsTradeList() {
                             ) : (
                               <Music2 size={22} color={cfg.color} />
                             )}
-                            <div style={{ position: "absolute", bottom: 3, right: 3, width: 15, height: 15, borderRadius: 4, background: "#000000", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <div style={{ position: "absolute", bottom: 3, right: 3, width: 15, height: 15, borderRadius: 4, background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                               <span style={{ width: 6, height: 6, borderRadius: "50%", background: cfg.color }} />
                             </div>
                           </div>
@@ -3822,29 +3876,29 @@ export default function DiscogsTradeList() {
                               href={post.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              style={{ fontSize: 13, fontWeight: 600, color: "#F5F0EC", textDecoration: "none", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}
+                              style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", textDecoration: "none", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}
                             >
                               {post.title || post.url}
                             </a>
-                            <div className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", margin: "3px 0 6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            <div className="mono" style={{ fontSize: 10.5, color: "var(--muted)", margin: "3px 0 6px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                               {post.subtitle ? `${post.subtitle} · ` : ""}via {cfg.label} · posted by {post.author_name || "someone"}
                             </div>
                             {post.note && (
-                              <div style={{ fontSize: 11.5, color: "#F5F0EC", background: "#0D0D0D", border: "1px solid #2A2A2A", borderRadius: 7, padding: "6px 8px", marginBottom: 8 }}>
+                              <div style={{ fontSize: 11.5, color: "var(--text)", background: "var(--surface-alt)", border: "1px solid var(--line)", borderRadius: 7, padding: "6px 8px", marginBottom: 8 }}>
                                 {post.note}
                               </div>
                             )}
                             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                              <a href={post.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#9A9A9A", textDecoration: "none" }}>
+                              <a href={post.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--muted)", textDecoration: "none" }}>
                                 <PlayCircle size={14} />
                                 {post.kind === "playlist" ? "Listen" : "Play"}
                               </a>
                               <button
                                 type="button"
                                 onClick={() => toggleListeningLike(post)}
-                                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: liked ? "#9D7047" : "#9A9A9A", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: liked ? "var(--accent)" : "var(--muted)", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
                               >
-                                <Heart size={14} fill={liked ? "#9D7047" : "none"} />
+                                <Heart size={14} fill={liked ? "var(--accent)" : "none"} />
                                 {likeCount}
                               </button>
                               {session && post.author_id === session.user.id && (
@@ -3856,7 +3910,7 @@ export default function DiscogsTradeList() {
                                     }
                                     title="Edit post"
                                     aria-label="Edit post"
-                                    style={{ display: "flex", alignItems: "center", marginLeft: "auto", background: "transparent", border: "none", color: "#6B6B6B", cursor: "pointer", padding: 0 }}
+                                    style={{ display: "flex", alignItems: "center", marginLeft: "auto", background: "transparent", border: "none", color: "var(--muted-2)", cursor: "pointer", padding: 0 }}
                                   >
                                     <Pencil size={13} />
                                   </button>
@@ -3865,7 +3919,7 @@ export default function DiscogsTradeList() {
                                     onClick={() => setListeningRemoveModal({ id: post.id, title: post.title || post.url })}
                                     title="Remove post"
                                     aria-label="Remove post"
-                                    style={{ display: "flex", alignItems: "center", background: "transparent", border: "none", color: "#9D7047", cursor: "pointer", padding: 0 }}
+                                    style={{ display: "flex", alignItems: "center", background: "transparent", border: "none", color: "var(--accent)", cursor: "pointer", padding: 0 }}
                                   >
                                     <Trash2 size={13} />
                                   </button>
@@ -3884,8 +3938,8 @@ export default function DiscogsTradeList() {
         )}
 
         {/* Footer sign-off + back-to-top link */}
-        <div style={{ textAlign: "center", marginTop: 48, paddingTop: 24, borderTop: "1px solid #2A2A2A" }}>
-          <p style={{ color: "#9A9A9A", fontSize: 13.5, lineHeight: 1.6, margin: "0 0 14px" }}>
+        <div style={{ textAlign: "center", marginTop: 48, paddingTop: 24, borderTop: "1px solid var(--line)" }}>
+          <p style={{ color: "var(--muted)", fontSize: 13.5, lineHeight: 1.6, margin: "0 0 14px" }}>
             we hope you found something you wanted. be safe, smart, friendly, and most importantly, enjoy the music.
           </p>
           <a
@@ -3895,7 +3949,7 @@ export default function DiscogsTradeList() {
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             style={{
-              color: "#CEAE73",
+              color: "var(--gold)",
               fontSize: 13.5,
               fontWeight: 600,
               textDecoration: "none",
@@ -3927,8 +3981,8 @@ export default function DiscogsTradeList() {
             style={{
               width: "100%",
               maxWidth: 380,
-              background: "#121212",
-              border: "1px solid #2A2A2A",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
               borderRadius: 12,
               padding: 20,
               boxSizing: "border-box",
@@ -3941,7 +3995,7 @@ export default function DiscogsTradeList() {
                   style={{
                     fontSize: 14,
                     fontWeight: 600,
-                    color: "#F5F0EC",
+                    color: "var(--text)",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -3949,7 +4003,7 @@ export default function DiscogsTradeList() {
                 >
                   {listModal.item.title}
                 </div>
-                <div className="mono" style={{ fontSize: 11, color: "#9A9A9A" }}>
+                <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
                   {LIST_TYPES[listModal.type].label}
                   {listModal.source === "search" ? ` · for ${name.trim() || "—"}` : ""}
                 </div>
@@ -3957,24 +4011,24 @@ export default function DiscogsTradeList() {
               <button
                 onClick={closeListModal}
                 title="Cancel"
-                style={{ background: "none", border: "none", color: "#9A9A9A", cursor: "pointer", flexShrink: 0, padding: 4 }}
+                style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", flexShrink: 0, padding: 4 }}
               >
                 <X size={18} />
               </button>
             </div>
 
             {listModal.source === "other" && (
-              <div className="mono" style={{ marginBottom: 14, padding: "8px 10px", borderRadius: 8, background: "#0D0D0D", border: "1px solid #2A2A2A", color: "#9A9A9A", fontSize: 10.5 }}>
-                Adding to your list as <strong style={{ color: "#F5F0EC" }}>{name}</strong>
+              <div className="mono" style={{ marginBottom: 14, padding: "8px 10px", borderRadius: 8, background: "var(--surface-alt)", border: "1px solid var(--line)", color: "var(--muted)", fontSize: 10.5 }}>
+                Adding to your list as <strong style={{ color: "var(--text)" }}>{name}</strong>
               </div>
             )}
 
             {isMasterResult(listModal.item) && (
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
-                  FORMAT <span style={{ color: "#9D7047" }}>*</span>
+                <label style={{ display: "block", fontSize: 12.5, color: "var(--muted)", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+                  FORMAT <span style={{ color: "var(--accent)" }}>*</span>
                 </label>
-                <p style={{ fontSize: 12, color: "#9A9A9A", margin: "0 0 10px", lineHeight: 1.4 }}>
+                <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 10px", lineHeight: 1.4 }}>
                   This is a master release — Discogs may show it as CD even when vinyl also exists. Which are you after?
                 </p>
                 <div style={{ display: "flex", gap: 6 }}>
@@ -3993,9 +4047,9 @@ export default function DiscogsTradeList() {
                           flex: 1,
                           padding: "9px 6px",
                           borderRadius: 7,
-                          border: `1px solid ${selected ? opt.color : "#2A2A2A"}`,
-                          background: selected ? `${opt.color}22` : "#000000",
-                          color: selected ? opt.color : "#D8D3CC",
+                          border: `1px solid ${selected ? opt.color : "var(--line)"}`,
+                          background: selected ? `${opt.color}22` : "var(--bg)",
+                          color: selected ? opt.color : "var(--text-tertiary)",
                           fontSize: 12.5,
                           fontWeight: selected ? 700 : 500,
                           cursor: "pointer",
@@ -4011,8 +4065,8 @@ export default function DiscogsTradeList() {
 
             {listModal.type === "trade" && (
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
-                  TRADE OR SELL <span style={{ color: "#9D7047" }}>*</span>
+                <label style={{ display: "block", fontSize: 12.5, color: "var(--muted)", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+                  TRADE OR SELL <span style={{ color: "var(--accent)" }}>*</span>
                 </label>
                 <div style={{ display: "flex", gap: 6 }}>
                   {Object.entries(LISTING_TYPE_CONFIG).map(([key, cfg]) => {
@@ -4030,9 +4084,9 @@ export default function DiscogsTradeList() {
                           gap: 5,
                           padding: "9px 6px",
                           borderRadius: 7,
-                          border: `1px solid ${selected ? cfg.color : "#2A2A2A"}`,
-                          background: selected ? `${cfg.color}22` : "#000000",
-                          color: selected ? cfg.color : "#D8D3CC",
+                          border: `1px solid ${selected ? cfg.color : "var(--line)"}`,
+                          background: selected ? `${cfg.color}22` : "var(--bg)",
+                          color: selected ? cfg.color : "var(--text-tertiary)",
                           fontSize: 12.5,
                           fontWeight: selected ? 700 : 500,
                           cursor: "pointer",
@@ -4047,13 +4101,13 @@ export default function DiscogsTradeList() {
 
                 {(modalListingType === "sale" || modalListingType === "both") && (
                   <div style={{ marginTop: 10 }}>
-                    <label style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 5 }}>
-                      Asking price <span style={{ color: "#9D7047" }}>*</span>
+                    <label style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginBottom: 5 }}>
+                      Asking price <span style={{ color: "var(--accent)" }}>*</span>
                     </label>
                     <div style={{ position: "relative" }}>
                       <span
                         className="mono"
-                        style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#6B6B6B", fontSize: 13.5 }}
+                        style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted-2)", fontSize: 13.5 }}
                       >
                         $
                       </span>
@@ -4066,9 +4120,9 @@ export default function DiscogsTradeList() {
                           width: "100%",
                           padding: "9px 12px 9px 24px",
                           borderRadius: 8,
-                          border: "1px solid #2A2A2A",
-                          background: "#000000",
-                          color: "#F5F0EC",
+                          border: "1px solid var(--line)",
+                          background: "var(--bg)",
+                          color: "var(--text)",
                           fontSize: 13.5,
                           boxSizing: "border-box",
                           outline: "none",
@@ -4083,8 +4137,8 @@ export default function DiscogsTradeList() {
             {listModal.type === "trade" && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                  <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", fontWeight: 600, letterSpacing: 1 }}>
-                    CONDITION <span style={{ color: "#6B6B6B", fontWeight: 400, letterSpacing: 0 }}>(optional)</span>
+                  <label style={{ display: "block", fontSize: 12.5, color: "var(--muted)", fontWeight: 600, letterSpacing: 1 }}>
+                    CONDITION <span style={{ color: "var(--muted-2)", fontWeight: 400, letterSpacing: 0 }}>(optional)</span>
                   </label>
                   <button
                     type="button"
@@ -4095,7 +4149,7 @@ export default function DiscogsTradeList() {
                       gap: 4,
                       background: "none",
                       border: "none",
-                      color: "#9D7047",
+                      color: "var(--accent)",
                       fontSize: 11,
                       fontWeight: 600,
                       cursor: "pointer",
@@ -4107,7 +4161,7 @@ export default function DiscogsTradeList() {
                     How to grade
                   </button>
                 </div>
-                <p style={{ fontSize: 11.5, color: "#6B6B6B", margin: "0 0 8px", lineHeight: 1.4 }}>
+                <p style={{ fontSize: 11.5, color: "var(--muted-2)", margin: "0 0 8px", lineHeight: 1.4 }}>
                   Use vinyl/cover with listing condition, and add as much detail as you'd like.
                 </p>
                 <input
@@ -4118,9 +4172,9 @@ export default function DiscogsTradeList() {
                     width: "100%",
                     padding: "9px 12px",
                     borderRadius: 8,
-                    border: "1px solid #2A2A2A",
-                    background: "#000000",
-                    color: "#F5F0EC",
+                    border: "1px solid var(--line)",
+                    background: "var(--bg)",
+                    color: "var(--text)",
                     fontSize: 13.5,
                     boxSizing: "border-box",
                     outline: "none",
@@ -4129,8 +4183,8 @@ export default function DiscogsTradeList() {
               </div>
             )}
 
-            <label style={{ display: "block", fontSize: 12.5, color: "#9A9A9A", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
-              NOTES <span style={{ color: "#6B6B6B", fontWeight: 400, letterSpacing: 0 }}>(optional)</span>
+            <label style={{ display: "block", fontSize: 12.5, color: "var(--muted)", marginBottom: 6, fontWeight: 600, letterSpacing: 1 }}>
+              NOTES <span style={{ color: "var(--muted-2)", fontWeight: 400, letterSpacing: 0 }}>(optional)</span>
             </label>
             <textarea
               value={modalNotes}
@@ -4145,9 +4199,9 @@ export default function DiscogsTradeList() {
                 width: "100%",
                 padding: "10px 12px",
                 borderRadius: 8,
-                border: "1px solid #2A2A2A",
-                background: "#000000",
-                color: "#F5F0EC",
+                border: "1px solid var(--line)",
+                background: "var(--bg)",
+                color: "var(--text)",
                 fontSize: 13.5,
                 boxSizing: "border-box",
                 outline: "none",
@@ -4166,8 +4220,8 @@ export default function DiscogsTradeList() {
                 padding: "10px 16px",
                 borderRadius: 8,
                 border: "none",
-                background: listModalBlocked() ? "#3A3A3A" : "#9D7047",
-                color: listModalBlocked() ? "#8A8A8A" : "#F5F0EC",
+                background: listModalBlocked() ? "var(--disabled-bg)" : "var(--accent)",
+                color: listModalBlocked() ? "var(--muted-5)" : "var(--text)",
                 fontWeight: 600,
                 fontSize: 14,
                 cursor: listModalBlocked() ? "not-allowed" : "pointer",
@@ -4200,24 +4254,24 @@ export default function DiscogsTradeList() {
               maxWidth: 460,
               maxHeight: "80vh",
               overflowY: "auto",
-              background: "#121212",
-              border: "1px solid #2A2A2A",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
               borderRadius: 12,
               padding: 20,
               boxSizing: "border-box",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#F5F0EC" }}>How to Grade</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>How to Grade</div>
               <button
                 onClick={() => setShowGradingGuide(false)}
                 title="Close"
-                style={{ background: "none", border: "none", color: "#9A9A9A", cursor: "pointer", flexShrink: 0, padding: 4 }}
+                style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", flexShrink: 0, padding: 4 }}
               >
                 <X size={18} />
               </button>
             </div>
-            <p className="mono" style={{ fontSize: 10.5, color: "#6B6B6B", margin: "0 0 16px", lineHeight: 1.5 }}>
+            <p className="mono" style={{ fontSize: 10.5, color: "var(--muted-2)", margin: "0 0 16px", lineHeight: 1.5 }}>
               A quick guide for describing vinyl/cover condition honestly.
             </p>
 
@@ -4270,7 +4324,7 @@ export default function DiscogsTradeList() {
               },
               {
                 grade: "Good (G / G+)",
-                color: "#9D7047",
+                color: "var(--accent)",
                 lines: ["Heavily used but still playable without skipping."],
                 bullets: [
                   "Significant surface noise and visible wear",
@@ -4291,14 +4345,14 @@ export default function DiscogsTradeList() {
                   {section.grade}
                 </div>
                 {section.lines.map((line, li) => (
-                  <p key={li} style={{ fontSize: 12.5, color: "#D8D3CC", margin: "0 0 6px", lineHeight: 1.5 }}>
+                  <p key={li} style={{ fontSize: 12.5, color: "var(--text-tertiary)", margin: "0 0 6px", lineHeight: 1.5 }}>
                     {line}
                   </p>
                 ))}
                 {section.bullets.length > 0 && (
                   <ul style={{ margin: "0 0 0 18px", padding: 0 }}>
                     {section.bullets.map((b, bi) => (
-                      <li key={bi} style={{ fontSize: 12, color: "#9A9A9A", lineHeight: 1.6 }}>
+                      <li key={bi} style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.6 }}>
                         {b}
                       </li>
                     ))}
@@ -4329,17 +4383,17 @@ export default function DiscogsTradeList() {
             style={{
               width: "100%",
               maxWidth: 360,
-              background: "#121212",
-              border: "1px solid #2A2A2A",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
               borderRadius: 12,
               padding: 20,
               boxSizing: "border-box",
             }}
           >
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC", marginBottom: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>
               {removeModal.title}
             </div>
-            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 16 }}>
+            <p className="mono" style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 0, marginBottom: 16 }}>
               {removeModal.unwanted
                 ? "Already unavailable — remove it for good?"
                 : `Remove ${removeModal.name}'s copy`}
@@ -4361,7 +4415,7 @@ export default function DiscogsTradeList() {
                   borderRadius: 8,
                   border: "1px solid #C99A3A",
                   background: "#C99A3A18",
-                  color: "#F5F0EC",
+                  color: "var(--text)",
                   fontSize: 14,
                   fontWeight: 500,
                   cursor: "pointer",
@@ -4372,7 +4426,7 @@ export default function DiscogsTradeList() {
                 <PauseCircle size={16} color="#C99A3A" style={{ flexShrink: 0, marginTop: 2 }} />
                 <span>
                   Mark unavailable
-                  <span className="mono" style={{ display: "block", fontSize: 10.5, color: "#9A9A9A", marginTop: 3 }}>
+                  <span className="mono" style={{ display: "block", fontSize: 10.5, color: "var(--muted)", marginTop: 3 }}>
                     Hides it from the list. You can restore it later.
                   </span>
                 </span>
@@ -4392,9 +4446,9 @@ export default function DiscogsTradeList() {
                 gap: 10,
                 padding: "10px 12px",
                 borderRadius: 8,
-                border: "1px solid #9D7047",
-                background: "#9D704718",
-                color: "#F5F0EC",
+                border: "1px solid var(--accent)",
+                background: "var(--accent)18",
+                color: "var(--text)",
                 fontSize: 14,
                 fontWeight: 500,
                 cursor: "pointer",
@@ -4402,10 +4456,10 @@ export default function DiscogsTradeList() {
                 textAlign: "left",
               }}
             >
-              <AlertCircle size={16} color="#9D7047" style={{ flexShrink: 0, marginTop: 2 }} />
+              <AlertCircle size={16} color="var(--accent)" style={{ flexShrink: 0, marginTop: 2 }} />
               <span>
                 Remove permanently
-                <span className="mono" style={{ display: "block", fontSize: 10.5, color: "#9A9A9A", marginTop: 3 }}>
+                <span className="mono" style={{ display: "block", fontSize: 10.5, color: "var(--muted)", marginTop: 3 }}>
                   Deletes the row outright. This can't be undone.
                 </span>
               </span>
@@ -4421,7 +4475,7 @@ export default function DiscogsTradeList() {
                 borderRadius: 8,
                 border: "none",
                 background: "transparent",
-                color: "#6B6B6B",
+                color: "var(--muted-2)",
                 fontSize: 11.5,
                 cursor: "pointer",
                 marginTop: 4,
@@ -4452,8 +4506,8 @@ export default function DiscogsTradeList() {
             style={{
               width: "100%",
               maxWidth: 340,
-              background: "#121212",
-              border: "1px solid #2A2A2A",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
               borderRadius: 12,
               padding: 20,
               boxSizing: "border-box",
@@ -4463,13 +4517,13 @@ export default function DiscogsTradeList() {
               style={{
                 fontSize: 14,
                 fontWeight: 600,
-                color: "#F5F0EC",
+                color: "var(--text)",
                 marginBottom: 4,
               }}
             >
               {statusModal.title}
             </div>
-            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 16 }}>
+            <p className="mono" style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 0, marginBottom: 16 }}>
               Update status
             </p>
 
@@ -4493,9 +4547,9 @@ export default function DiscogsTradeList() {
                     gap: 10,
                     padding: "10px 12px",
                     borderRadius: 8,
-                    border: `1px solid ${isCurrent ? color : "#2A2A2A"}`,
-                    background: isCurrent ? `${color}18` : "#000000",
-                    color: isCurrent ? color : "#F5F0EC",
+                    border: `1px solid ${isCurrent ? color : "var(--line)"}`,
+                    background: isCurrent ? `${color}18` : "var(--bg)",
+                    color: isCurrent ? color : "var(--text)",
                     fontSize: 14,
                     fontWeight: isCurrent ? 600 : 500,
                     cursor: "pointer",
@@ -4521,9 +4575,9 @@ export default function DiscogsTradeList() {
                   width: "100%",
                   padding: "8px 12px",
                   borderRadius: 8,
-                  border: "1px solid #2A2A2A",
+                  border: "1px solid var(--line)",
                   background: "transparent",
-                  color: "#9A9A9A",
+                  color: "var(--muted)",
                   fontSize: 11.5,
                   cursor: "pointer",
                   marginTop: 4,
@@ -4543,7 +4597,7 @@ export default function DiscogsTradeList() {
                 borderRadius: 8,
                 border: "none",
                 background: "transparent",
-                color: "#6B6B6B",
+                color: "var(--muted-2)",
                 fontSize: 11.5,
                 cursor: "pointer",
                 marginTop: 4,
@@ -4575,8 +4629,8 @@ export default function DiscogsTradeList() {
             style={{
               width: "100%",
               maxWidth: 420,
-              background: "#121212",
-              border: "1px solid #2A2A2A",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
               borderRadius: 12,
               padding: 20,
               boxSizing: "border-box",
@@ -4585,10 +4639,10 @@ export default function DiscogsTradeList() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <Pencil size={15} color="#9D7047" />
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC" }}>Edit your profile</div>
+              <Pencil size={15} color="var(--accent)" />
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Edit your profile</div>
             </div>
-            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 16 }}>
+            <p className="mono" style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 0, marginBottom: 16 }}>
               Shown to anyone who clicks your name on a listing.
             </p>
 
@@ -4598,7 +4652,7 @@ export default function DiscogsTradeList() {
                 <img
                   src={profileAvatarUrl}
                   alt=""
-                  style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", border: "1px solid #2A2A2A", flexShrink: 0 }}
+                  style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", border: "1px solid var(--line)", flexShrink: 0 }}
                 />
               ) : (
                 <div
@@ -4606,18 +4660,18 @@ export default function DiscogsTradeList() {
                     width: 52,
                     height: 52,
                     borderRadius: "50%",
-                    border: "1px dashed #2A2A2A",
+                    border: "1px dashed var(--line)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
                   }}
                 >
-                  <User size={20} color="#6B6B6B" />
+                  <User size={20} color="var(--muted-2)" />
                 </div>
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <label className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", display: "block", marginBottom: 5 }}>
+                <label className="mono" style={{ fontSize: 10.5, color: "var(--muted)", display: "block", marginBottom: 5 }}>
                   DISCOGS USERNAME
                 </label>
                 <div style={{ display: "flex", gap: 7 }}>
@@ -4626,7 +4680,7 @@ export default function DiscogsTradeList() {
                     onChange={(e) => { setProfileDiscogsUsername(e.target.value); setAvatarImportError(null); }}
                     onKeyDown={(e) => { if (e.key === "Enter") importDiscogsAvatar(); }}
                     placeholder="e.g. recordcollector99"
-                    style={{ flex: 1, minWidth: 0, padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none" }}
+                    style={{ flex: 1, minWidth: 0, padding: "8px 9px", borderRadius: 7, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--text)", fontSize: 13, outline: "none" }}
                   />
                   <button
                     type="button"
@@ -4638,10 +4692,10 @@ export default function DiscogsTradeList() {
                       display: "inline-flex",
                       alignItems: "center",
                       gap: 5,
-                      border: "1px solid #2A2A2A",
+                      border: "1px solid var(--line)",
                       borderRadius: 7,
                       background: "transparent",
-                      color: "#9D7047",
+                      color: "var(--accent)",
                       padding: "0 10px",
                       fontSize: 11,
                       cursor: avatarImporting ? "wait" : "pointer",
@@ -4659,7 +4713,7 @@ export default function DiscogsTradeList() {
             </div>
 
             {/* Bio */}
-            <label className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", display: "block", marginBottom: 5 }}>
+            <label className="mono" style={{ fontSize: 10.5, color: "var(--muted)", display: "block", marginBottom: 5 }}>
               BIO
             </label>
             <textarea
@@ -4667,36 +4721,36 @@ export default function DiscogsTradeList() {
               onChange={(e) => setProfileBio(e.target.value)}
               placeholder="A little about your collection, what you're into, etc."
               rows={3}
-              style={{ width: "100%", padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box", fontFamily: "'Barlow', sans-serif", marginBottom: 14 }}
+              style={{ width: "100%", padding: "8px 9px", borderRadius: 7, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--text)", fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box", fontFamily: "'Barlow', sans-serif", marginBottom: 14 }}
             />
 
             {/* Favorite genres */}
-            <label className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", display: "block", marginBottom: 5 }}>
+            <label className="mono" style={{ fontSize: 10.5, color: "var(--muted)", display: "block", marginBottom: 5 }}>
               FAVORITE GENRES
             </label>
             <input
               value={profileFavoriteGenres}
               onChange={(e) => setProfileFavoriteGenres(e.target.value)}
               placeholder="e.g. Soul, Post-punk, Ambient"
-              style={{ width: "100%", padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 14 }}
+              style={{ width: "100%", padding: "8px 9px", borderRadius: 7, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 14 }}
             />
 
             {/* Socials */}
-            <label className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", display: "block", marginBottom: 5 }}>
+            <label className="mono" style={{ fontSize: 10.5, color: "var(--muted)", display: "block", marginBottom: 5 }}>
               INSTAGRAM
             </label>
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 14 }}>
-              <AtSign size={14} color="#6B6B6B" style={{ flexShrink: 0 }} />
+              <AtSign size={14} color="var(--muted-2)" style={{ flexShrink: 0 }} />
               <input
                 value={profileInstagram}
                 onChange={(e) => setProfileInstagram(e.target.value)}
                 placeholder="username (no @ or link needed)"
-                style={{ flex: 1, minWidth: 0, padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                style={{ flex: 1, minWidth: 0, padding: "8px 9px", borderRadius: 7, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box" }}
               />
             </div>
 
             {/* Shipping */}
-            <label className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", display: "block", marginBottom: 5 }}>
+            <label className="mono" style={{ fontSize: 10.5, color: "var(--muted)", display: "block", marginBottom: 5 }}>
               SHIPPING
             </label>
             <button
@@ -4709,9 +4763,9 @@ export default function DiscogsTradeList() {
                 width: "100%",
                 padding: "9px 10px",
                 borderRadius: 7,
-                border: `1px solid ${profileWillingToShip ? "#8FE3C1" : "#2A2A2A"}`,
-                background: profileWillingToShip ? "#8FE3C114" : "#000000",
-                color: profileWillingToShip ? "#8FE3C1" : "#9A9A9A",
+                border: `1px solid ${profileWillingToShip ? "#8FE3C1" : "var(--line)"}`,
+                background: profileWillingToShip ? "#8FE3C114" : "var(--bg)",
+                color: profileWillingToShip ? "#8FE3C1" : "var(--muted)",
                 fontSize: 13,
                 cursor: "pointer",
                 marginBottom: profileWillingToShip ? 7 : 14,
@@ -4725,7 +4779,7 @@ export default function DiscogsTradeList() {
                 value={profileShippingCost}
                 onChange={(e) => setProfileShippingCost(e.target.value)}
                 placeholder="Shipping cost, e.g. “$5 flat” or “buyer pays”"
-                style={{ width: "100%", padding: "8px 9px", borderRadius: 7, border: "1px solid #2A2A2A", background: "#000000", color: "#F5F0EC", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 14 }}
+                style={{ width: "100%", padding: "8px 9px", borderRadius: 7, border: "1px solid var(--line)", background: "var(--bg)", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 14 }}
               />
             )}
 
@@ -4737,7 +4791,7 @@ export default function DiscogsTradeList() {
                 onClick={() => setProfileEditOpen(false)}
                 disabled={profileSaving}
                 className="mono"
-                style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid #2A2A2A", background: "transparent", color: "#9A9A9A", fontSize: 12.5, cursor: profileSaving ? "default" : "pointer" }}
+                style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid var(--line)", background: "transparent", color: "var(--muted)", fontSize: 12.5, cursor: profileSaving ? "default" : "pointer" }}
               >
                 Cancel
               </button>
@@ -4745,7 +4799,7 @@ export default function DiscogsTradeList() {
                 type="button"
                 onClick={saveProfileDetails}
                 disabled={profileSaving}
-                style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "none", background: "#9D7047", color: "#F5F0EC", fontWeight: 600, fontSize: 12.5, cursor: profileSaving ? "wait" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "none", background: "var(--accent)", color: "var(--text)", fontWeight: 600, fontSize: 12.5, cursor: profileSaving ? "wait" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
               >
                 {profileSaving ? <RefreshCw size={14} className="spin" /> : "Save"}
               </button>
@@ -4773,8 +4827,8 @@ export default function DiscogsTradeList() {
             style={{
               width: "100%",
               maxWidth: 360,
-              background: "#121212",
-              border: "1px solid #2A2A2A",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
               borderRadius: 12,
               padding: 20,
               boxSizing: "border-box",
@@ -4792,7 +4846,7 @@ export default function DiscogsTradeList() {
                       <img
                         src={viewed.avatar_url}
                         alt=""
-                        style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", border: "1px solid #2A2A2A", flexShrink: 0 }}
+                        style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", border: "1px solid var(--line)", flexShrink: 0 }}
                       />
                     ) : (
                       <div
@@ -4800,42 +4854,42 @@ export default function DiscogsTradeList() {
                           width: 52,
                           height: 52,
                           borderRadius: "50%",
-                          border: "1px solid #2A2A2A",
+                          border: "1px solid var(--line)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
                           flexShrink: 0,
-                          background: "#000000",
+                          background: "var(--bg)",
                         }}
                       >
-                        <User size={20} color="#6B6B6B" />
+                        <User size={20} color="var(--muted-2)" />
                       </div>
                     )}
-                    <div style={{ fontSize: 16, fontWeight: 600, color: "#F5F0EC" }}>{displayName}</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text)" }}>{displayName}</div>
                   </div>
 
                   {profileViewLoading && !viewed ? (
-                    <div className="mono" style={{ color: "#9A9A9A", fontSize: 10.5 }}>Loading profile…</div>
+                    <div className="mono" style={{ color: "var(--muted)", fontSize: 10.5 }}>Loading profile…</div>
                   ) : !viewed ? (
-                    <div className="mono" style={{ color: "#9A9A9A", fontSize: 10.5 }}>No profile details yet.</div>
+                    <div className="mono" style={{ color: "var(--muted)", fontSize: 10.5 }}>No profile details yet.</div>
                   ) : (
                     <>
                       {viewed.bio && (
-                        <p style={{ fontSize: 13, color: "#D8D3CC", lineHeight: 1.5, marginTop: 0, marginBottom: 14 }}>
+                        <p style={{ fontSize: 13, color: "var(--text-tertiary)", lineHeight: 1.5, marginTop: 0, marginBottom: 14 }}>
                           {viewed.bio}
                         </p>
                       )}
 
                       {viewed.favorite_genres && (
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10 }}>
-                          <ListMusic size={14} color="#9D7047" style={{ flexShrink: 0, marginTop: 2 }} />
-                          <div style={{ fontSize: 12.5, color: "#D8D3CC" }}>{viewed.favorite_genres}</div>
+                          <ListMusic size={14} color="var(--accent)" style={{ flexShrink: 0, marginTop: 2 }} />
+                          <div style={{ fontSize: 12.5, color: "var(--text-tertiary)" }}>{viewed.favorite_genres}</div>
                         </div>
                       )}
 
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                        <Truck size={14} color={viewed.willing_to_ship ? "#8FE3C1" : "#6B6B6B"} style={{ flexShrink: 0 }} />
-                        <div style={{ fontSize: 12.5, color: viewed.willing_to_ship ? "#8FE3C1" : "#6B6B6B" }}>
+                        <Truck size={14} color={viewed.willing_to_ship ? "#8FE3C1" : "var(--muted-2)"} style={{ flexShrink: 0 }} />
+                        <div style={{ fontSize: 12.5, color: viewed.willing_to_ship ? "#8FE3C1" : "var(--muted-2)" }}>
                           {viewed.willing_to_ship
                             ? `Willing to ship${viewed.shipping_cost ? ` — ${viewed.shipping_cost}` : ""}`
                             : "Local trade/pickup only"}
@@ -4843,14 +4897,14 @@ export default function DiscogsTradeList() {
                       </div>
 
                       {(viewed.discogs_username || viewed.instagram) && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 12, paddingTop: 12, borderTop: "1px solid #2A2A2A" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
                           {viewed.discogs_username && (
                             <a
                               href={`https://www.discogs.com/user/${encodeURIComponent(viewed.discogs_username)}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="mono"
-                              style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#9D7047", textDecoration: "none" }}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "var(--accent)", textDecoration: "none" }}
                             >
                               <Disc3 size={13} /> {viewed.discogs_username}
                             </a>
@@ -4861,7 +4915,7 @@ export default function DiscogsTradeList() {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="mono"
-                              style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "#9D7047", textDecoration: "none" }}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "var(--accent)", textDecoration: "none" }}
                             >
                               <AtSign size={13} /> {viewed.instagram}
                             </a>
@@ -4875,7 +4929,7 @@ export default function DiscogsTradeList() {
                     type="button"
                     onClick={() => setProfileViewModal(null)}
                     className="mono"
-                    style={{ width: "100%", marginTop: 18, padding: "8px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#6B6B6B", fontSize: 11.5, cursor: "pointer" }}
+                    style={{ width: "100%", marginTop: 18, padding: "8px 12px", borderRadius: 8, border: "none", background: "transparent", color: "var(--muted-2)", fontSize: 11.5, cursor: "pointer" }}
                   >
                     Close
                   </button>
@@ -4905,17 +4959,17 @@ export default function DiscogsTradeList() {
             style={{
               width: "100%",
               maxWidth: 340,
-              background: "#121212",
-              border: "1px solid #2A2A2A",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
               borderRadius: 12,
               padding: 20,
               boxSizing: "border-box",
             }}
           >
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC", marginBottom: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>
               {listingEditModal.title}
             </div>
-            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 16 }}>
+            <p className="mono" style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 0, marginBottom: 16 }}>
               Trade or sell?
             </p>
 
@@ -4935,9 +4989,9 @@ export default function DiscogsTradeList() {
                       gap: 5,
                       padding: "9px 6px",
                       borderRadius: 7,
-                      border: `1px solid ${selected ? cfg.color : "#2A2A2A"}`,
-                      background: selected ? `${cfg.color}22` : "#000000",
-                      color: selected ? cfg.color : "#D8D3CC",
+                      border: `1px solid ${selected ? cfg.color : "var(--line)"}`,
+                      background: selected ? `${cfg.color}22` : "var(--bg)",
+                      color: selected ? cfg.color : "var(--text-tertiary)",
                       fontSize: 12.5,
                       fontWeight: selected ? 700 : 500,
                       cursor: "pointer",
@@ -4952,13 +5006,13 @@ export default function DiscogsTradeList() {
 
             {(listingEditModal.listingType === "sale" || listingEditModal.listingType === "both") && (
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: "block", fontSize: 11.5, color: "#9A9A9A", marginBottom: 5 }}>
-                  Asking price <span style={{ color: "#9D7047" }}>*</span>
+                <label style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginBottom: 5 }}>
+                  Asking price <span style={{ color: "var(--accent)" }}>*</span>
                 </label>
                 <div style={{ position: "relative" }}>
                   <span
                     className="mono"
-                    style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#6B6B6B", fontSize: 13.5 }}
+                    style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted-2)", fontSize: 13.5 }}
                   >
                     $
                   </span>
@@ -4972,9 +5026,9 @@ export default function DiscogsTradeList() {
                       width: "100%",
                       padding: "9px 12px 9px 24px",
                       borderRadius: 8,
-                      border: "1px solid #2A2A2A",
-                      background: "#000000",
-                      color: "#F5F0EC",
+                      border: "1px solid var(--line)",
+                      background: "var(--bg)",
+                      color: "var(--text)",
                       fontSize: 13.5,
                       boxSizing: "border-box",
                       outline: "none",
@@ -4995,8 +5049,8 @@ export default function DiscogsTradeList() {
                 padding: "10px 16px",
                 borderRadius: 8,
                 border: "none",
-                background: "#9D7047",
-                color: "#F5F0EC",
+                background: "var(--accent)",
+                color: "var(--text)",
                 fontWeight: 600,
                 fontSize: 14,
                 cursor: "pointer",
@@ -5015,7 +5069,7 @@ export default function DiscogsTradeList() {
                 borderRadius: 8,
                 border: "none",
                 background: "transparent",
-                color: "#6B6B6B",
+                color: "var(--muted-2)",
                 fontSize: 11.5,
                 cursor: "pointer",
                 marginTop: 4,
@@ -5046,19 +5100,19 @@ export default function DiscogsTradeList() {
             style={{
               width: "100%",
               maxWidth: 380,
-              background: "#121212",
-              border: "1px solid #2A2A2A",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
               borderRadius: 12,
               padding: 20,
               boxSizing: "border-box",
             }}
           >
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC", marginBottom: 4 }}>Edit post</div>
-            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 12 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>Edit post</div>
+            <p className="mono" style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 0, marginBottom: 12 }}>
               The link, title, and thumbnail come from the URL itself — only the note and filing can change.
             </p>
 
-            <div style={{ display: "flex", gap: 4, background: "#000000", border: "1px solid #2A2A2A", borderRadius: 7, padding: 3, marginBottom: 12 }}>
+            <div style={{ display: "flex", gap: 4, background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 7, padding: 3, marginBottom: 12 }}>
               {["song", "playlist"].map((k) => (
                 <button
                   key={k}
@@ -5071,7 +5125,7 @@ export default function DiscogsTradeList() {
                     border: "none",
                     cursor: "pointer",
                     background: listeningEditModal.kind === k ? "#8FE3C1" : "transparent",
-                    color: listeningEditModal.kind === k ? "#000000" : "#9A9A9A",
+                    color: listeningEditModal.kind === k ? "var(--bg)" : "var(--muted)",
                     fontSize: 11.5,
                     fontWeight: 600,
                     textTransform: "capitalize",
@@ -5092,9 +5146,9 @@ export default function DiscogsTradeList() {
                 width: "100%",
                 padding: "10px 12px",
                 borderRadius: 8,
-                border: "1px solid #2A2A2A",
-                background: "#000000",
-                color: "#F5F0EC",
+                border: "1px solid var(--line)",
+                background: "var(--bg)",
+                color: "var(--text)",
                 fontSize: 14,
                 boxSizing: "border-box",
                 outline: "none",
@@ -5113,8 +5167,8 @@ export default function DiscogsTradeList() {
                   padding: "10px 16px",
                   borderRadius: 8,
                   border: "none",
-                  background: "#9D7047",
-                  color: "#F5F0EC",
+                  background: "var(--accent)",
+                  color: "var(--text)",
                   fontWeight: 600,
                   fontSize: 14,
                   cursor: "pointer",
@@ -5129,9 +5183,9 @@ export default function DiscogsTradeList() {
                   flex: 1,
                   padding: "10px 16px",
                   borderRadius: 8,
-                  border: "1px solid #2A2A2A",
+                  border: "1px solid var(--line)",
                   background: "transparent",
-                  color: "#9A9A9A",
+                  color: "var(--muted)",
                   fontWeight: 600,
                   fontSize: 14,
                   cursor: "pointer",
@@ -5163,17 +5217,17 @@ export default function DiscogsTradeList() {
             style={{
               width: "100%",
               maxWidth: 360,
-              background: "#121212",
-              border: "1px solid #2A2A2A",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
               borderRadius: 12,
               padding: 20,
               boxSizing: "border-box",
             }}
           >
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC", marginBottom: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>
               Remove this post?
             </div>
-            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 16 }}>
+            <p className="mono" style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 0, marginBottom: 16 }}>
               {listeningRemoveModal.title} — this can't be undone.
             </p>
 
@@ -5188,16 +5242,16 @@ export default function DiscogsTradeList() {
                 gap: 8,
                 padding: "10px 12px",
                 borderRadius: 8,
-                border: "1px solid #9D7047",
-                background: "#9D704718",
-                color: "#F5F0EC",
+                border: "1px solid var(--accent)",
+                background: "var(--accent)18",
+                color: "var(--text)",
                 fontSize: 14,
                 fontWeight: 600,
                 cursor: "pointer",
                 marginBottom: 8,
               }}
             >
-              <Trash2 size={15} color="#9D7047" />
+              <Trash2 size={15} color="var(--accent)" />
               Remove permanently
             </button>
 
@@ -5208,9 +5262,9 @@ export default function DiscogsTradeList() {
                 width: "100%",
                 padding: "10px 12px",
                 borderRadius: 8,
-                border: "1px solid #2A2A2A",
+                border: "1px solid var(--line)",
                 background: "transparent",
-                color: "#9A9A9A",
+                color: "var(--muted)",
                 fontSize: 14,
                 fontWeight: 500,
                 cursor: "pointer",
@@ -5241,27 +5295,27 @@ export default function DiscogsTradeList() {
             style={{
               width: "100%",
               maxWidth: 380,
-              background: "#121212",
-              border: "1px solid #2A2A2A",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
               borderRadius: 12,
               padding: 20,
               boxSizing: "border-box",
             }}
           >
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#F5F0EC", marginBottom: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 4 }}>
               {itemDetailsModal.title}
             </div>
-            <p className="mono" style={{ fontSize: 10.5, color: "#9A9A9A", marginTop: 0, marginBottom: 14 }}>
+            <p className="mono" style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 0, marginBottom: 14 }}>
               Edit{itemDetailsModal.name ? ` — ${itemDetailsModal.name}` : ""}
             </p>
 
             <label
               className="mono"
-              style={{ fontSize: 10.5, color: "#CEAE73", display: "block", marginBottom: 6 }}
+              style={{ fontSize: 10.5, color: "var(--gold)", display: "block", marginBottom: 6 }}
             >
               CONDITION
             </label>
-            <p style={{ fontSize: 11.5, color: "#6B6B6B", margin: "0 0 8px", lineHeight: 1.4 }}>
+            <p style={{ fontSize: 11.5, color: "var(--muted-2)", margin: "0 0 8px", lineHeight: 1.4 }}>
               Use vinyl/cover with listing condition, and add as much detail as you'd like.
             </p>
             <input
@@ -5273,9 +5327,9 @@ export default function DiscogsTradeList() {
                 width: "100%",
                 padding: "10px 12px",
                 borderRadius: 8,
-                border: "1px solid #2A2A2A",
-                background: "#000000",
-                color: "#F5F0EC",
+                border: "1px solid var(--line)",
+                background: "var(--bg)",
+                color: "var(--text)",
                 fontSize: 14,
                 boxSizing: "border-box",
                 outline: "none",
@@ -5286,7 +5340,7 @@ export default function DiscogsTradeList() {
 
             <label
               className="mono"
-              style={{ fontSize: 10.5, color: "#CEAE73", display: "block", marginBottom: 6 }}
+              style={{ fontSize: 10.5, color: "var(--gold)", display: "block", marginBottom: 6 }}
             >
               NOTES
             </label>
@@ -5299,9 +5353,9 @@ export default function DiscogsTradeList() {
                 width: "100%",
                 padding: "10px 12px",
                 borderRadius: 8,
-                border: "1px solid #2A2A2A",
-                background: "#000000",
-                color: "#F5F0EC",
+                border: "1px solid var(--line)",
+                background: "var(--bg)",
+                color: "var(--text)",
                 fontSize: 14,
                 boxSizing: "border-box",
                 outline: "none",
@@ -5326,8 +5380,8 @@ export default function DiscogsTradeList() {
                   padding: "10px 16px",
                   borderRadius: 8,
                   border: "none",
-                  background: "#9D7047",
-                  color: "#F5F0EC",
+                  background: "var(--accent)",
+                  color: "var(--text)",
                   fontWeight: 600,
                   fontSize: 14,
                   cursor: "pointer",
@@ -5342,9 +5396,9 @@ export default function DiscogsTradeList() {
                 style={{
                   padding: "10px 16px",
                   borderRadius: 8,
-                  border: "1px solid #2A2A2A",
+                  border: "1px solid var(--line)",
                   background: "transparent",
-                  color: "#9A9A9A",
+                  color: "var(--muted)",
                   fontSize: 12.5,
                   cursor: "pointer",
                 }}
@@ -5375,23 +5429,23 @@ export default function DiscogsTradeList() {
             style={{
               width: "100%",
               maxWidth: 360,
-              background: "#121212",
-              border: "1px solid #2A2A2A",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
               borderRadius: 12,
               padding: 20,
               boxSizing: "border-box",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-              <ListMusic size={18} color="#9D7047" />
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#F5F0EC" }}>
+              <ListMusic size={18} color="var(--accent)" />
+              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>
                 Add {discogsSelectedCount} item{discogsSelectedCount !== 1 ? "s" : ""}?
               </div>
             </div>
-            <p style={{ fontSize: 13.5, color: "#D8D3CC", lineHeight: 1.5, margin: "0 0 18px" }}>
+            <p style={{ fontSize: 13.5, color: "var(--text-tertiary)", lineHeight: 1.5, margin: "0 0 18px" }}>
               This adds {discogsSelectedCount} item{discogsSelectedCount !== 1 ? "s" : ""} from{" "}
               {discogsUsername.trim()}'s Discogs wantlist to the In Search Of list, under{" "}
-              <strong style={{ color: "#F5F0EC" }}>{name.trim()}</strong>.
+              <strong style={{ color: "var(--text)" }}>{name.trim()}</strong>.
             </p>
             <div style={{ display: "flex", gap: 8 }}>
               <button
@@ -5407,8 +5461,8 @@ export default function DiscogsTradeList() {
                   padding: "10px 16px",
                   borderRadius: 8,
                   border: "none",
-                  background: "#9D7047",
-                  color: "#F5F0EC",
+                  background: "var(--accent)",
+                  color: "var(--text)",
                   fontWeight: 600,
                   fontSize: 14,
                   cursor: discogsAdding ? "not-allowed" : "pointer",
@@ -5424,9 +5478,9 @@ export default function DiscogsTradeList() {
                 style={{
                   padding: "10px 16px",
                   borderRadius: 8,
-                  border: "1px solid #2A2A2A",
+                  border: "1px solid var(--line)",
                   background: "transparent",
-                  color: "#9A9A9A",
+                  color: "var(--muted)",
                   fontWeight: 600,
                   fontSize: 13.5,
                   cursor: discogsAdding ? "not-allowed" : "pointer",
@@ -5458,23 +5512,23 @@ export default function DiscogsTradeList() {
             style={{
               width: "100%",
               maxWidth: 360,
-              background: "#121212",
-              border: "1px solid #2A2A2A",
+              background: "var(--surface)",
+              border: "1px solid var(--line)",
               borderRadius: 12,
               padding: 20,
               boxSizing: "border-box",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-              <ListMusic size={18} color="#9D7047" />
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#F5F0EC" }}>
+              <ListMusic size={18} color="var(--accent)" />
+              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>
                 Add {discogsInvSelectedCount} item{discogsInvSelectedCount !== 1 ? "s" : ""}?
               </div>
             </div>
-            <p style={{ fontSize: 13.5, color: "#D8D3CC", lineHeight: 1.5, margin: "0 0 18px" }}>
+            <p style={{ fontSize: 13.5, color: "var(--text-tertiary)", lineHeight: 1.5, margin: "0 0 18px" }}>
               This adds {discogsInvSelectedCount} item{discogsInvSelectedCount !== 1 ? "s" : ""} from{" "}
               {discogsInvUsername.trim()}'s Discogs inventory to the For Trade list, under{" "}
-              <strong style={{ color: "#F5F0EC" }}>{name.trim()}</strong>.
+              <strong style={{ color: "var(--text)" }}>{name.trim()}</strong>.
             </p>
             <div style={{ display: "flex", gap: 8 }}>
               <button
@@ -5490,8 +5544,8 @@ export default function DiscogsTradeList() {
                   padding: "10px 16px",
                   borderRadius: 8,
                   border: "none",
-                  background: "#9D7047",
-                  color: "#F5F0EC",
+                  background: "var(--accent)",
+                  color: "var(--text)",
                   fontWeight: 600,
                   fontSize: 14,
                   cursor: discogsInvAdding ? "not-allowed" : "pointer",
@@ -5507,9 +5561,9 @@ export default function DiscogsTradeList() {
                 style={{
                   padding: "10px 16px",
                   borderRadius: 8,
-                  border: "1px solid #2A2A2A",
+                  border: "1px solid var(--line)",
                   background: "transparent",
-                  color: "#9A9A9A",
+                  color: "var(--muted)",
                   fontWeight: 600,
                   fontSize: 13.5,
                   cursor: discogsInvAdding ? "not-allowed" : "pointer",
@@ -5545,8 +5599,8 @@ export default function DiscogsTradeList() {
               top: 16,
               right: 16,
               background: "rgba(18,18,18,0.9)",
-              border: "1px solid #2A2A2A",
-              color: "#F5F0EC",
+              border: "1px solid var(--line)",
+              color: "var(--text)",
               borderRadius: 8,
               padding: 8,
               cursor: "pointer",
@@ -5566,7 +5620,7 @@ export default function DiscogsTradeList() {
               height: "auto",
               objectFit: "contain",
               borderRadius: 8,
-              border: "1px solid #2A2A2A",
+              border: "1px solid var(--line)",
               boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
             }}
           />
@@ -5581,8 +5635,8 @@ export default function DiscogsTradeList() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            background: toastSuccess ? "#6FA987" : "#9D7047",
-            color: "#F5F0EC",
+            background: toastSuccess ? "#6FA987" : "var(--accent)",
+            color: "var(--text)",
             padding: "16px 26px",
             borderRadius: 10,
             fontSize: 14.5,
@@ -5607,13 +5661,13 @@ function EmptyState({ text }) {
       style={{
         textAlign: "center",
         padding: "48px 20px",
-        color: "#9A9A9A",
+        color: "var(--muted)",
         fontSize: 14,
-        border: "1px dashed #2A2A2A",
+        border: "1px dashed var(--line)",
         borderRadius: 12,
       }}
     >
-      <Disc3 size={28} color="#2A2A2A" style={{ marginBottom: 10 }} />
+      <Disc3 size={28} color="var(--line)" style={{ marginBottom: 10 }} />
       <div>{text}</div>
     </div>
   );
