@@ -2092,7 +2092,6 @@ export default function DiscogsTradeList() {
         .mood-thumb { position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background:var(--muted); transition:transform .18s ease, background .18s ease; }
         .mood-track.light .mood-thumb { transform:translateX(18px); background:var(--accent); }
         .mood-toggle svg { flex-shrink:0; }
-      `}</style>
         .record-thumb:hover { opacity: 0.85; }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
