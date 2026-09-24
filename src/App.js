@@ -218,6 +218,256 @@ function RecordThumb({ src, alt, size = 56, onClick }) {
   );
 }
 
+// Turns a discogs.com page link (already stored on every listing, e.g.
+// ".../release/249504-Artist-Title" or ".../master/12345-...") into the
+// api.discogs.com resource_url that /api/discogs-detail expects.
+function discogsApiUrlFromPageUrl(pageUrl) {
+  if (!pageUrl) return null;
+  const m = String(pageUrl).match(/discogs\.com\/(?:[a-z]{2}\/)?(release|master)\/(\d+)/i);
+  if (!m) return null;
+  const kind = m[1].toLowerCase() === "master" ? "masters" : "releases";
+  return `https://api.discogs.com/${kind}/${m[2]}`;
+}
+
+function renderStars(average) {
+  const rounded = Math.round(average);
+  return "★".repeat(Math.max(0, Math.min(5, rounded))) + "☆".repeat(Math.max(0, 5 - rounded));
+}
+
+// Discogs doesn't host audio previews - the closest thing the release
+// endpoint offers is a community-submitted `videos` list (almost always
+// YouTube, not necessarily one per track or in order). Loosely match
+// titles so "Play" lines up with the right song when possible.
+function normalizeTrackTitle(s) {
+  return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+function matchTrackVideo(track, unmatchedVideos) {
+  const norm = normalizeTrackTitle(track?.title);
+  if (norm.length < 3) return null;
+  const idx = unmatchedVideos.findIndex((v) => {
+    const vNorm = normalizeTrackTitle(v.title);
+    return vNorm.length >= 3 && (vNorm.includes(norm) || norm.includes(vNorm));
+  });
+  if (idx === -1) return null;
+  return unmatchedVideos.splice(idx, 1)[0];
+}
+function youtubeEmbedId(url) {
+  const m = String(url || "").match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+function TrackVideoPlayer({ video }) {
+  const videoId = youtubeEmbedId(video.uri);
+  if (!videoId) {
+    return (
+      <a href={video.uri} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", fontSize: 12.5 }}>
+        Listen: {video.title} →
+      </a>
+    );
+  }
+  return (
+    <div style={{ position: "relative", paddingTop: "56.25%", margin: "6px 0 10px", borderRadius: 8, overflow: "hidden" }}>
+      <iframe
+        src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+        title={video.title}
+        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    </div>
+  );
+}
+
+function Tracklist({ tracklist, videos }) {
+  const [playingKey, setPlayingKey] = useState(null);
+  if (!tracklist || tracklist.length === 0) return null;
+
+  const remainingVideos = [...(videos || [])];
+  const rows = tracklist.map((t, i) => ({
+    ...t,
+    key: `${t.position || ""}-${i}`,
+    video: t.type_ === "track" || !t.type_ ? matchTrackVideo(t, remainingVideos) : null,
+  }));
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="mono" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: "var(--muted)", marginBottom: 8 }}>
+        TRACKLIST
+      </div>
+      <div>
+        {rows.map((t) =>
+          t.type_ === "heading" ? (
+            <div key={t.key} style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text-secondary)", margin: "8px 0 4px" }}>
+              {t.title}
+            </div>
+          ) : (
+            <div key={t.key}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid var(--line-soft)" }}>
+                <span className="mono" style={{ fontSize: 11, color: "var(--muted)", minWidth: 26 }}>{t.position}</span>
+                <span style={{ flex: 1, fontSize: 13, color: "var(--text)", minWidth: 0 }}>
+                  {t.title}
+                  {t.extraartists?.length > 0 && (
+                    <span style={{ color: "var(--muted)" }}> — {t.extraartists.map((a) => a.name).join(", ")}</span>
+                  )}
+                </span>
+                <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>{t.duration || ""}</span>
+                {t.video && (
+                  <button
+                    type="button"
+                    onClick={() => setPlayingKey((k) => (k === t.key ? null : t.key))}
+                    aria-label={playingKey === t.key ? `Hide video for ${t.title}` : `Play ${t.title}`}
+                    style={{ background: "none", border: "1px solid var(--line)", color: "var(--accent)", borderRadius: 6, width: 26, height: 26, flexShrink: 0, cursor: "pointer", fontSize: 11 }}
+                  >
+                    {playingKey === t.key ? "✕" : "▶"}
+                  </button>
+                )}
+              </div>
+              {playingKey === t.key && t.video && <TrackVideoPlayer video={t.video} />}
+            </div>
+          )
+        )}
+      </div>
+
+      {remainingVideos.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <div className="mono" style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: 0.5, color: "var(--muted)", marginBottom: 4 }}>
+            OTHER VIDEOS
+          </div>
+          {remainingVideos.map((v, i) => (
+            <div key={`${v.uri}-${i}`}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid var(--line-soft)" }}>
+                <span style={{ flex: 1, fontSize: 13, color: "var(--text)" }}>{v.title}</span>
+                <button
+                  type="button"
+                  onClick={() => setPlayingKey((k) => (k === `extra-${i}` ? null : `extra-${i}`))}
+                  aria-label={playingKey === `extra-${i}` ? `Hide video for ${v.title}` : `Play ${v.title}`}
+                  style={{ background: "none", border: "1px solid var(--line)", color: "var(--accent)", borderRadius: 6, width: 26, height: 26, flexShrink: 0, cursor: "pointer", fontSize: 11 }}
+                >
+                  {playingKey === `extra-${i}` ? "✕" : "▶"}
+                </button>
+              </div>
+              {playingKey === `extra-${i}` && <TrackVideoPlayer video={v} />}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// The full record-details modal - art, community stats, tracklist with
+// YouTube play buttons, and "View on Discogs". Opened by clicking a
+// listing's thumbnail or title; fetches live detail from Discogs the
+// first time it opens for an item.
+function RecordDetailsModal({ item, detail, loading, error, onClose }) {
+  const releaseUrl = item.url || null;
+  const ratingInfo = detail?.community?.rating;
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 1200 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 480, maxHeight: "88vh", overflowY: "auto", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, padding: 20, boxSizing: "border-box" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={onClose} title="Close" style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <div style={{ width: 200, height: 200, borderRadius: 8, overflow: "hidden", border: "1px solid var(--line)", background: "var(--bg)" }}>
+            {item.image_full || item.thumb ? (
+              <img src={item.image_full || item.thumb} alt={item.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Disc3 size={64} color="var(--accent)" strokeWidth={1.5} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <h2 style={{ fontSize: 17, fontWeight: 600, color: "var(--text)", margin: "0 0 4px", textAlign: "center" }}>{item.title}</h2>
+
+        {loading && (
+          <div className="mono" style={{ textAlign: "center", color: "var(--muted)", fontSize: 12, padding: "16px 0" }}>
+            Loading details from Discogs…
+          </div>
+        )}
+        {!loading && error && (
+          <div className="mono" style={{ textAlign: "center", color: "var(--muted)", fontSize: 12, padding: "8px 0 16px" }}>
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && detail && (
+          <div style={{ marginTop: 10 }}>
+            {ratingInfo && ratingInfo.count > 0 && (
+              <p style={{ textAlign: "center", fontSize: 13, margin: "0 0 6px" }}>
+                <span style={{ color: "var(--gold)" }}>{renderStars(ratingInfo.average)}</span>{" "}
+                <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>
+                  {ratingInfo.average.toFixed(2)} ({ratingInfo.count})
+                </span>
+              </p>
+            )}
+            {detail.community && (
+              <p className="mono" style={{ textAlign: "center", fontSize: 11.5, color: "var(--muted)", margin: "0 0 12px" }}>
+                ❤ {detail.community.have ?? 0} have it &nbsp;·&nbsp; ☆ {detail.community.want ?? 0} want it
+              </p>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", rowGap: 5, columnGap: 10, fontSize: 12.5 }}>
+              {detail.labels?.length > 0 && (
+                <>
+                  <span style={{ color: "var(--muted)" }}>Label</span>
+                  <span style={{ color: "var(--text)" }}>{detail.labels.map((l) => l.name).join(", ")}</span>
+                </>
+              )}
+              {detail.labels?.[0]?.catno && (
+                <>
+                  <span style={{ color: "var(--muted)" }}>Catalog #</span>
+                  <span className="mono" style={{ color: "var(--text)" }}>{detail.labels[0].catno}</span>
+                </>
+              )}
+              {detail.year ? (
+                <>
+                  <span style={{ color: "var(--muted)" }}>Year</span>
+                  <span style={{ color: "var(--text)" }}>{detail.year}</span>
+                </>
+              ) : null}
+              {detail.country && (
+                <>
+                  <span style={{ color: "var(--muted)" }}>Country</span>
+                  <span style={{ color: "var(--text)" }}>{detail.country}</span>
+                </>
+              )}
+              {detail.formats?.length > 0 && (
+                <>
+                  <span style={{ color: "var(--muted)" }}>Format</span>
+                  <span style={{ color: "var(--text)" }}>
+                    {detail.formats.map((f) => [f.name, ...(f.descriptions || [])].join(" ")).join(", ")}
+                  </span>
+                </>
+              )}
+              {detail.genres?.length > 0 && (
+                <>
+                  <span style={{ color: "var(--muted)" }}>Genre</span>
+                  <span style={{ color: "var(--text)" }}>{detail.genres.join(", ")}</span>
+                </>
+              )}
+            </div>
+
+            <Tracklist tracklist={detail.tracklist} videos={detail.videos} />
+          </div>
+        )}
+
+        {releaseUrl && (
+          <a href={releaseUrl} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", marginTop: 18, padding: "10px 0", borderRadius: 8, border: "1px solid var(--accent)", color: "var(--accent)", textDecoration: "none", fontSize: 13, fontWeight: 600 }}>
+            View on Discogs →
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 // popover: render the expanded thread as an absolutely-positioned panel hanging
 // off the button instead of inline. Needed where the button sits in a narrow
@@ -924,6 +1174,12 @@ export default function DiscogsTradeList() {
 
   // edit-details popup (condition + notes together) — { id, title, name, condition, notes } | null
   const [itemDetailsModal, setItemDetailsModal] = useState(null);
+  // Full record-info modal (art, ratings, tracklist w/ YouTube) - separate
+  // from itemDetailsModal above, which is the condition/notes edit form.
+  const [recordDetailsModal, setRecordDetailsModal] = useState(null); // item | null
+  const [recordDetail, setRecordDetail] = useState(null);
+  const [recordDetailLoading, setRecordDetailLoading] = useState(false);
+  const [recordDetailError, setRecordDetailError] = useState(null);
 
   // thumbnail lightbox — { src, alt } | null
   const [imagePreview, setImagePreview] = useState(null);
@@ -1519,6 +1775,33 @@ export default function DiscogsTradeList() {
         `If you're after a different version, you can still add this one — just mention the format you want in your note.\n\n` +
         `Add it anyway?`
     );
+
+  const openRecordDetails = (item) => {
+    setRecordDetailsModal(item);
+    setRecordDetail(null);
+    setRecordDetailError(null);
+
+    const apiUrl = discogsApiUrlFromPageUrl(item.url);
+    if (!apiUrl) {
+      setRecordDetailError("No Discogs link saved for this item.");
+      return;
+    }
+    setRecordDetailLoading(true);
+    fetch(`/api/discogs-detail?url=${encodeURIComponent(apiUrl)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.message && !data?.tracklist) throw new Error(data.message);
+        setRecordDetail(data);
+      })
+      .catch(() => setRecordDetailError("Couldn't load details from Discogs."))
+      .finally(() => setRecordDetailLoading(false));
+  };
+
+  const closeRecordDetails = () => {
+    setRecordDetailsModal(null);
+    setRecordDetail(null);
+    setRecordDetailError(null);
+  };
 
   const openListModal = (item, source, type = listType) => {
     if (!session || !profile) {
@@ -3176,21 +3459,16 @@ export default function DiscogsTradeList() {
                     src={g.thumb}
                     alt={g.title}
                     size={52}
-                    onClick={() => setImagePreview({ src: g.image_full || g.thumb, alt: g.title })}
+                    onClick={() => openRecordDetails(g)}
                   />
                   <div className="entry-details" style={{ flex: 1, minWidth: 0 }}>
-                    {g.url ? (
-                      <a
-                        href={g.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: 15, fontWeight: 500, color: "var(--text)", textDecoration: "none", borderBottom: "1px solid var(--accent)" }}
-                      >
-                        {g.title}
-                      </a>
-                    ) : (
-                      <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text)" }}>{g.title}</div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => openRecordDetails(g)}
+                      style={{ background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer", fontSize: 15, fontWeight: 500, color: "var(--text)", textDecoration: "none", borderBottom: g.url ? "1px solid var(--accent)" : "1px solid transparent" }}
+                    >
+                      {g.title}
+                    </button>
                     {(g.genre || g.format) && (
                       <div
                         className="mono"
@@ -5624,6 +5902,16 @@ export default function DiscogsTradeList() {
             </div>
           </div>
         </div>
+      )}
+
+      {recordDetailsModal && (
+        <RecordDetailsModal
+          item={recordDetailsModal}
+          detail={recordDetail}
+          loading={recordDetailLoading}
+          error={recordDetailError}
+          onClose={closeRecordDetails}
+        />
       )}
 
       {imagePreview && (
