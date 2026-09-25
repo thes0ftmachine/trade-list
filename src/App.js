@@ -2415,7 +2415,7 @@ export default function DiscogsTradeList() {
           --accent-soft: #F2E6DE; --line-soft: #E7DED2; --line-strong: #D8CEC0; --line: #CEC3B5;
           --disabled-bg: #D8D0C5; --muted-border: #BEB3A6; --accent-dark-soft: #E9DCCB;
           --warm-dark: #E5DBD0; --warm-muted: #CFC3B8; --muted-2: #81786E; --muted-3: #716960;
-          --muted-4: #686159; --muted-5: #5F5851; --muted: #6F675E; --accent: #875B3A;
+          --muted-4: #686159; --muted-5: #5F5851; --muted: #6F675E; --accent: #B98657;
           --gold: #936B32; --text-secondary: #4F4942; --text-tertiary: #39342F; --text: #26221E;
         }
         .mood-toggle { display:inline-flex; align-items:center; gap:6px; padding:0; color:var(--muted); }
