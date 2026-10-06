@@ -1635,11 +1635,15 @@ export default function DiscogsTradeList() {
               const firstImage = detail.images && detail.images[0];
               const thumb = detail.thumb || (firstImage && firstImage.uri150) || null;
               const imageFull = (firstImage && firstImage.uri) || thumb || null;
-              if (!thumb && !imageFull) return;
               setResults((prev) => {
                 const next = [...prev];
                 if (next[idx] && next[idx].id === item.id) {
-                  next[idx] = { ...next[idx], thumb, image_full: imageFull };
+                  next[idx] = {
+                    ...next[idx],
+                    ...(thumb || imageFull ? { thumb, image_full: imageFull } : {}),
+                    country: next[idx].country || detail.country || undefined,
+                    formats: next[idx].formats && next[idx].formats.length ? next[idx].formats : detail.formats,
+                  };
                 }
                 return next;
               });
@@ -1684,6 +1688,14 @@ export default function DiscogsTradeList() {
     if (/\bvinyl\b|\blp\b|\balbum\b|\b7"|\b10"|\b12"|\b45\s?rpm\b|\b33\s?rpm\b/.test(joined)) return "Vinyl";
 
     return exact || list[0];
+  };
+  // Discogs puts the vinyl color / variant in formats[].text (e.g. "Red
+  // Translucent", "Black"). Search results for releases include it directly;
+  // masters don't, since a master spans many pressings.
+  const deriveColorText = (item) => {
+    const fmts = Array.isArray(item.formats) ? item.formats : [];
+    const texts = fmts.map((f) => (f && f.text ? String(f.text).trim() : "")).filter(Boolean);
+    return texts.length ? texts.join(", ") : null;
   };
   const formatColor = (format) => {
     if (!format) return "var(--muted)";
@@ -2688,6 +2700,10 @@ export default function DiscogsTradeList() {
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") runSearch();
                   }}
@@ -2810,7 +2826,9 @@ export default function DiscogsTradeList() {
                             MASTER — ANY PRESSING
                           </span>
                         )}
-                        {item.year || ""} {deriveFormat(item) ? `· ${deriveFormat(item)}` : ""}
+                        {[item.year, deriveFormat(item), deriveColorText(item), item.country]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </div>
                     </div>
                     <button
@@ -3270,6 +3288,10 @@ export default function DiscogsTradeList() {
                   type="search"
                   value={itemSearchQuery}
                   onChange={(e) => setItemSearchQuery(e.target.value)}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
                   placeholder="Search title, genre, format, or person…"
                   aria-label="Search items by title, genre, format, or person"
                   style={{
