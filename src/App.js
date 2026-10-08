@@ -472,8 +472,12 @@ function RecordDetailsModal({ item, detail, loading, error, onClose }) {
 // popover: render the expanded thread as an absolutely-positioned panel hanging
 // off the button instead of inline. Needed where the button sits in a narrow
 // right-hand column that would otherwise squash the thread to its own width.
-function TradeComments({ itemId, session, profile, popover = false }) {
-  const [expanded, setExpanded] = useState(false);
+function TradeComments({ itemId, session, profile, popover = false, autoOpen = false }) {
+  const [expanded, setExpanded] = useState(!!autoOpen);
+  // Deep link from a notification email asks this thread to open itself.
+  useEffect(() => {
+    if (autoOpen) setExpanded(true);
+  }, [autoOpen]);
   const [comments, setComments] = useState([]);
   const [body, setBody] = useState("");
   const [replyTo, setReplyTo] = useState(null);
@@ -850,7 +854,7 @@ function TradeComments({ itemId, session, profile, popover = false }) {
   };
 
   return (
-    <div style={{ marginTop: popover ? 0 : 8, paddingLeft: 0, position: popover ? "relative" : undefined }}>
+    <div id={`comments-${itemId}`} style={{ marginTop: popover ? 0 : 8, paddingLeft: 0, position: popover ? "relative" : undefined }}>
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -1114,6 +1118,15 @@ export default function DiscogsTradeList() {
 
   const [entries, setEntries] = useState([]);
   const [loadingEntries, setLoadingEntries] = useState(true);
+  // Deep link from notification emails: /?item=<entry id>. Read once on load.
+  const [deepLinkItemId, setDeepLinkItemId] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("item");
+    } catch {
+      return null;
+    }
+  });
+  const [autoOpenItemId, setAutoOpenItemId] = useState(null);
   const [view, setView] = useState("byItem"); // byItem | add
   const [personFilter, setPersonFilter] = useState("all");
   const [itemGenreFilter, setItemGenreFilter] = useState("all");
@@ -1430,6 +1443,30 @@ export default function DiscogsTradeList() {
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
+
+  // Once entries have loaded, jump to the entry named in ?item=: switch to its
+  // tab, clear filters so it can't be hidden, open its comment thread, and
+  // scroll to it. The param is cleared so a refresh doesn't reopen it.
+  useEffect(() => {
+    if (!deepLinkItemId || loadingEntries) return;
+    const target = entries.find((e) => String(e.id) === String(deepLinkItemId));
+    try {
+      window.history.replaceState({}, "", window.location.pathname);
+    } catch {}
+    setDeepLinkItemId(null);
+    if (!target) return;
+    setListType(target.type);
+    setView("byItem");
+    setPersonFilter("all");
+    setItemGenreFilter("all");
+    setItemFormatFilter("all");
+    setItemSearchQuery("");
+    setAutoOpenItemId(target.id);
+    setTimeout(() => {
+      const el = document.getElementById(`comments-${target.id}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 400);
+  }, [deepLinkItemId, loadingEntries, entries]);
 
   const loadListeningPosts = useCallback(async () => {
     setLoadingListening(true);
@@ -3759,7 +3796,7 @@ export default function DiscogsTradeList() {
                               {p.name}
                             </span>
                           )}
-                          <TradeComments itemId={p.id} session={session} profile={profile} popover />
+                          <TradeComments itemId={p.id} session={session} profile={profile} popover autoOpen={autoOpenItemId === p.id} />
                           {canModify && (
                             <button
                               type="button"
