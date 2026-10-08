@@ -1,5 +1,5 @@
 import React from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, Disc3, User, Plus, X, Trash2, RefreshCw, ListMusic, CheckCircle2, AlertCircle, StickyNote, RotateCcw, Package, PauseCircle, Truck, Pencil, Mail, LogOut, MessageCircle, ShieldCheck, Info, Repeat, Tag, AtSign, Headphones, Heart, PlayCircle, Link2, Music2, Moon, Sun } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { Analytics } from "@vercel/analytics/react";
@@ -478,6 +478,28 @@ function TradeComments({ itemId, session, profile, popover = false, autoOpen = f
   useEffect(() => {
     if (autoOpen) setExpanded(true);
   }, [autoOpen]);
+  // In popover mode, clicking anywhere outside the thread (or pressing Escape)
+  // closes it. composedPath() is read at dispatch time, so clicks on elements
+  // that React removes mid-click (e.g. the Cancel button in the editor) still
+  // count as inside.
+  const rootRef = useRef(null);
+  useEffect(() => {
+    if (!expanded || !popover) return undefined;
+    const onClick = (e) => {
+      const root = rootRef.current;
+      const path = e.composedPath ? e.composedPath() : [];
+      if (root && !path.includes(root)) setExpanded(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setExpanded(false);
+    };
+    document.addEventListener("click", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("click", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [expanded, popover]);
   const [comments, setComments] = useState([]);
   const [body, setBody] = useState("");
   const [replyTo, setReplyTo] = useState(null);
@@ -854,7 +876,7 @@ function TradeComments({ itemId, session, profile, popover = false, autoOpen = f
   };
 
   return (
-    <div id={`comments-${itemId}`} style={{ marginTop: popover ? 0 : 8, paddingLeft: 0, position: popover ? "relative" : undefined }}>
+    <div ref={rootRef} id={`comments-${itemId}`} style={{ marginTop: popover ? 0 : 8, paddingLeft: 0, position: popover ? "relative" : undefined }}>
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
