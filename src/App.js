@@ -3654,7 +3654,7 @@ export default function DiscogsTradeList() {
                           g.genre && { text: g.genre, color: "var(--accent)" },
                           g.format && { text: g.format, color: formatColor(g.format) },
                           g.years.length > 0 && { text: g.years.join(" / "), color: "var(--muted)" },
-                          g.variants.length > 0 && { text: g.variants.join(" / "), color: "var(--gold)" },
+                          g.variants.length > 0 && { text: g.variants.join(" / "), color: "var(--muted)" },
                         ]
                           .filter(Boolean)
                           .map((part, i) => (
