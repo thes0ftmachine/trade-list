@@ -94,6 +94,7 @@ export default async function handler(req, res) {
         genre: info.genres || [],
         style: info.styles || [],
         format,
+        formats: info.formats || [], // carries the variant text (e.g. "Purple") for deriveColorText()
         discogsNotes: w.notes || null,
       };
     });
