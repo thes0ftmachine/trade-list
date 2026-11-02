@@ -5,7 +5,7 @@
 // never from anything shipped in the frontend bundle.
 
 export default async function handler(req, res) {
-  const { q, type, per_page } = req.query;
+  const { q, type, per_page, page } = req.query;
 
   if (!q || !type) {
     res.status(400).json({ error: "Missing required query params: q, type" });
@@ -23,9 +23,10 @@ export default async function handler(req, res) {
   }
 
   const safePerPage = Math.min(parseInt(per_page, 10) || 12, 25);
+  const safePage = Math.max(parseInt(page, 10) || 1, 1);
   const url = `https://api.discogs.com/database/search?q=${encodeURIComponent(
     q
-  )}&type=${type}&per_page=${safePerPage}&token=${token}`;
+  )}&type=${type}&per_page=${safePerPage}&page=${safePage}&token=${token}`;
 
   try {
     const discogsRes = await fetch(url, {
