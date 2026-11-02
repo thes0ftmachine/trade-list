@@ -1116,6 +1116,14 @@ export default function DiscogsTradeList() {
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(null);
+  // "Load more" pagination for the Discogs search results. searchedQuery is
+  // the query that produced the current results (not whatever is currently
+  // typed in the box), and searchPages is how many pages Discogs says exist
+  // for each result type.
+  const [searchedQuery, setSearchedQuery] = useState("");
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchPages, setSearchPages] = useState({ master: 1, release: 1 });
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Discogs wantlist import — In Search Of tab only. Private wantlists 403
   // server-side; surfaced as discogsImportError.
@@ -1660,55 +1668,75 @@ export default function DiscogsTradeList() {
     setSearchError(null);
   };
 
+  // Discogs' search endpoint never includes thumb/cover_image — image data
+  // only lives on each item's own release/master resource. Results show
+  // titles immediately; this fetches thumbnails/full images in the
+  // background and fills them in as they arrive.
+  const hydrateResultDetails = (items) => {
+    items.forEach((item) => {
+      if (!item.resource_url) return;
+      fetch(`/api/discogs-detail?url=${encodeURIComponent(item.resource_url)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((detail) => {
+          if (!detail) return;
+          const firstImage = detail.images && detail.images[0];
+          const thumb = detail.thumb || (firstImage && firstImage.uri150) || null;
+          const imageFull = (firstImage && firstImage.uri) || thumb || null;
+          setResults((prev) =>
+            prev.map((r) =>
+              r.id === item.id && r.type === item.type
+                ? {
+                    ...r,
+                    ...(thumb || imageFull ? { thumb, image_full: imageFull } : {}),
+                    country: r.country || detail.country || undefined,
+                    formats: r.formats && r.formats.length ? r.formats : detail.formats,
+                  }
+                : r
+            )
+          );
+        })
+        .catch(() => {});
+    });
+  };
+
+  // Fetches one page of masters + releases for a query. masters = the album
+  // itself, any pressing. releases = one specific pressing. both go through
+  // our own /api proxy — the real Discogs token stays server-side. A type
+  // that has run out of pages is skipped (Discogs 404s past the last page).
+  const fetchSearchPage = async (q, page, pages) => {
+    const get = async (type) => {
+      if (page > 1 && page > pages[type]) return { results: [], pagination: { pages: pages[type] } };
+      const res = await fetch(
+        `/api/discogs-search?q=${encodeURIComponent(q)}&type=${type}&per_page=12&page=${page}`
+      );
+      return res.ok ? await res.json() : null;
+    };
+    const [masterData, releaseData] = await Promise.all([get("master"), get("release")]);
+    return { masterData, releaseData };
+  };
+
   const runSearch = async () => {
     if (!query.trim()) return;
     setSearching(true);
     setSearchError(null);
     setResults([]);
+    setSearchPage(1);
+    setSearchPages({ master: 1, release: 1 });
     try {
-      // masters = the album itself, any pressing. releases = one specific
-      // pressing. both go through our own /api proxy — the real Discogs
-      // token stays server-side.
-      const masterUrl = `/api/discogs-search?q=${encodeURIComponent(query)}&type=master&per_page=12`;
-      const releaseUrl = `/api/discogs-search?q=${encodeURIComponent(query)}&type=release&per_page=12`;
-      const [masterRes, releaseRes] = await Promise.all([fetch(masterUrl), fetch(releaseUrl)]);
-      if (!masterRes.ok && !releaseRes.ok) throw new Error("bad response");
-      const masterData = masterRes.ok ? await masterRes.json() : { results: [] };
-      const releaseData = releaseRes.ok ? await releaseRes.json() : { results: [] };
-      const combined = [...(masterData.results || []), ...(releaseData.results || [])];
+      const { masterData, releaseData } = await fetchSearchPage(query, 1, { master: 1, release: 1 });
+      if (!masterData && !releaseData) throw new Error("bad response");
+      const combined = [...(masterData?.results || []), ...(releaseData?.results || [])];
 
       if (combined.length === 0) {
         setSearchError("No results found on Discogs. Try a different search.");
       } else {
-        // Discogs' search endpoint never includes thumb/cover_image — image
-        // data only lives on each item's own release/master resource. Show
-        // titles immediately, fetch thumbnails/full images in the
-        // background and fill them in as they arrive.
-        setResults(combined);
-        combined.forEach((item, idx) => {
-          if (!item.resource_url) return;
-          fetch(`/api/discogs-detail?url=${encodeURIComponent(item.resource_url)}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((detail) => {
-              if (!detail) return;
-              const firstImage = detail.images && detail.images[0];
-              const thumb = detail.thumb || (firstImage && firstImage.uri150) || null;
-              const imageFull = (firstImage && firstImage.uri) || thumb || null;
-              setResults((prev) => {
-                const next = [...prev];
-                if (next[idx] && next[idx].id === item.id) {
-                  next[idx] = {
-                    ...next[idx],
-                    ...(thumb || imageFull ? { thumb, image_full: imageFull } : {}),
-                    country: next[idx].country || detail.country || undefined,
-                    formats: next[idx].formats && next[idx].formats.length ? next[idx].formats : detail.formats,
-                  };
-                }
-                return next;
-              });
-            })
-            .catch(() => {});
+        setSearchedQuery(query);
+        setSearchPages({
+          master: masterData?.pagination?.pages ?? 1,
+          release: releaseData?.pagination?.pages ?? 1,
         });
+        setResults(combined);
+        hydrateResultDetails(combined);
       }
     } catch (err) {
       setSearchError(
@@ -1716,6 +1744,26 @@ export default function DiscogsTradeList() {
       );
     } finally {
       setSearching(false);
+    }
+  };
+
+  const loadMoreResults = async () => {
+    if (loadingMore || !searchedQuery) return;
+    const nextPage = searchPage + 1;
+    setLoadingMore(true);
+    try {
+      const { masterData, releaseData } = await fetchSearchPage(searchedQuery, nextPage, searchPages);
+      if (!masterData && !releaseData) throw new Error("bad response");
+      const incoming = [...(masterData?.results || []), ...(releaseData?.results || [])];
+      const seen = new Set(results.map((r) => `${r.type}-${r.id}`));
+      const fresh = incoming.filter((r) => !seen.has(`${r.type}-${r.id}`));
+      setResults((prev) => [...prev, ...fresh]);
+      setSearchPage(nextPage);
+      hydrateResultDetails(fresh);
+    } catch (err) {
+      showToast("Couldn't load more results — try again");
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -2824,7 +2872,7 @@ export default function DiscogsTradeList() {
               <div style={{ marginBottom: 20 }}>
                 {results.map((item) => (
                   <div
-                    key={item.id}
+                    key={`${item.type}-${item.id}`}
                     className="entry-row"
                     style={{
                       display: "flex",
@@ -2910,6 +2958,32 @@ export default function DiscogsTradeList() {
                     </button>
                   </div>
                 ))}
+                {searchPage < Math.max(searchPages.master, searchPages.release) && (
+                  <button
+                    type="button"
+                    onClick={loadMoreResults}
+                    disabled={loadingMore}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      width: "100%",
+                      marginTop: 12,
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid var(--line)",
+                      background: "transparent",
+                      color: "var(--text)",
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      cursor: loadingMore ? "default" : "pointer",
+                      opacity: loadingMore ? 0.7 : 1,
+                    }}
+                  >
+                    {loadingMore ? <RefreshCw size={14} className="spin" /> : "Load more results"}
+                  </button>
+                )}
               </div>
             )}
 
