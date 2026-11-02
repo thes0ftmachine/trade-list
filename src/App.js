@@ -2002,6 +2002,8 @@ export default function DiscogsTradeList() {
       price: needsPrice ? parsedPrice : null,
       genre: deriveGenre(item),
       format: masterFormatOverride || deriveFormat(item),
+      year: item.year ? String(item.year) : null,
+      variant: item.variant || deriveColorText(item),
     };
     try {
       const { error } = await supabase.from(TABLE).insert([entry]);
@@ -2108,6 +2110,8 @@ export default function DiscogsTradeList() {
       condition: null,
       genre: deriveGenre(it),
       format: deriveFormat(it),
+      year: it.year ? String(it.year) : null,
+      variant: deriveColorText(it),
     }));
     try {
       const { error } = await supabase.from(TABLE).insert(newEntries);
@@ -2231,6 +2235,7 @@ export default function DiscogsTradeList() {
       price: it.price != null ? parsePrice(it.price) : null,
       genre: deriveGenre(it),
       format: deriveFormat(it),
+      year: it.year ? String(it.year) : null,
     }));
     try {
       const { error } = await supabase.from(TABLE).insert(newEntries);
@@ -2430,12 +2435,20 @@ export default function DiscogsTradeList() {
     if (personFilter !== "all" && e.name !== personFilter) return;
     if (!genreMatches(e.genre, itemGenreFilter)) return;
     if (!formatMatches(e.format, itemFormatFilter)) return;
-    if (!byItem[e.title]) byItem[e.title] = { title: e.title, thumb: e.thumb, image_full: e.image_full || null, url: e.url || null, genre: e.genre || null, format: e.format || null, people: [] };
+    if (!byItem[e.title]) byItem[e.title] = { title: e.title, thumb: e.thumb, image_full: e.image_full || null, url: e.url || null, genre: e.genre || null, format: e.format || null, year: e.year || null, variant: e.variant || null, people: [] };
     if (!byItem[e.title].url && e.url) byItem[e.title].url = e.url;
     if (!byItem[e.title].genre && e.genre) byItem[e.title].genre = e.genre;
     if (!byItem[e.title].format && e.format) byItem[e.title].format = e.format;
+    if (!byItem[e.title].year && e.year) byItem[e.title].year = e.year;
+    if (!byItem[e.title].variant && e.variant) byItem[e.title].variant = e.variant;
     if (!byItem[e.title].image_full && e.image_full) byItem[e.title].image_full = e.image_full;
     byItem[e.title].people.push(e);
+  });
+  // Different people can list different pressings of the same title, so the
+  // row shows every distinct year / variant in the group, not just the first.
+  Object.values(byItem).forEach((g) => {
+    g.years = [...new Set(g.people.map((p) => p.year).filter(Boolean))];
+    g.variants = [...new Set(g.people.map((p) => p.variant).filter(Boolean))];
   });
   const itemGroups = Object.values(byItem).sort((a, b) => b.people.length - a.people.length);
 
@@ -2443,9 +2456,9 @@ export default function DiscogsTradeList() {
     const q = search.trim().toLowerCase();
     if (!q) return true;
 
-    const values = [group.title, group.genre, group.format];
+    const values = [group.title, group.genre, group.format, group.year, group.variant];
     group.people.forEach((person) => {
-      values.push(person.name, person.title, person.genre, person.format, person.condition);
+      values.push(person.name, person.title, person.genre, person.format, person.condition, person.year, person.variant);
     });
 
     return values.some((value) =>
@@ -3425,8 +3438,8 @@ export default function DiscogsTradeList() {
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  placeholder="Search title, genre, format, or person…"
-                  aria-label="Search items by title, genre, format, or person"
+                  placeholder="Search title, genre, format, year, variant, or person…"
+                  aria-label="Search items by title, genre, format, year, variant, or person"
                   style={{
                     width: "100%",
                     padding: "10px 40px 10px 38px",
@@ -3468,7 +3481,7 @@ export default function DiscogsTradeList() {
                 )}
               </div>
               <div className="mono" style={{ fontSize: 10.5, color: "var(--muted-2)", marginTop: 6 }}>
-                Searches title, genre, format, condition, and person together.
+                Searches title, genre, format, year, variant, condition, and person together.
               </div>
             </div>
 
@@ -3624,7 +3637,7 @@ export default function DiscogsTradeList() {
                     >
                       {g.title}
                     </button>
-                    {(g.genre || g.format) && (
+                    {(g.genre || g.format || g.years.length > 0 || g.variants.length > 0) && (
                       <div
                         className="mono"
                         style={{
@@ -3633,12 +3646,23 @@ export default function DiscogsTradeList() {
                           letterSpacing: 0.5,
                           display: "flex",
                           alignItems: "center",
+                          flexWrap: "wrap",
                           gap: 5,
                         }}
                       >
-                        {g.genre && <span style={{ color: "var(--accent)" }}>{g.genre}</span>}
-                        {g.genre && g.format && <span style={{ color: "var(--muted-border)" }}>|</span>}
-                        {g.format && <span style={{ color: formatColor(g.format) }}>{g.format}</span>}
+                        {[
+                          g.genre && { text: g.genre, color: "var(--accent)" },
+                          g.format && { text: g.format, color: formatColor(g.format) },
+                          g.years.length > 0 && { text: g.years.join(" / "), color: "var(--muted)" },
+                          g.variants.length > 0 && { text: g.variants.join(" / "), color: "var(--gold)" },
+                        ]
+                          .filter(Boolean)
+                          .map((part, i) => (
+                            <React.Fragment key={i}>
+                              {i > 0 && <span style={{ color: "var(--muted-border)" }}>|</span>}
+                              <span style={{ color: part.color }}>{part.text}</span>
+                            </React.Fragment>
+                          ))}
                       </div>
                     )}
                     {g.people.some((p) => p.condition) && (
@@ -3851,7 +3875,7 @@ export default function DiscogsTradeList() {
                           type="button"
                           onClick={() =>
                             openListModal(
-                              { title: g.title, thumb: g.thumb, image_full: g.image_full || null, url: g.url, genre: g.genre || null, format: g.format || null },
+                              { title: g.title, thumb: g.thumb, image_full: g.image_full || null, url: g.url, genre: g.genre || null, format: g.format || null, year: g.year || null, variant: g.variant || null },
                               "other"
                             )
                           }
